@@ -1,0 +1,65 @@
+services:
+  db:
+    image: mariadb:11
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-root}
+      MARIADB_DATABASE: ${MARIADB_DATABASE:-ai_assistant}
+      MARIADB_USER: ${MARIADB_USER:-ai}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD:-ai}
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - db-data:/var/lib/mysql
+    networks:
+      - internal
+
+  llm-anonymizer:
+    build:
+      context: .
+      dockerfile: Dockerfile.llm-anonymizer
+    environment:
+      ANONYMIZER_ADDR: ":8080"
+      ANONYMIZER_TOKEN: ${ANONYMIZER_TOKEN:-}
+    # Solo red interna; no se publica al exterior.
+    networks:
+      - internal
+    restart: unless-stopped
+
+  core-engine:
+    build:
+      context: .
+      dockerfile: Dockerfile.core-engine
+    depends_on:
+      db:
+        condition: service_healthy
+      llm-anonymizer:
+        condition: service_started
+    environment:
+      HTTP_ADDR: ":8081"
+      DATABASE_DSN: "${MARIADB_USER:-ai}:${MARIADB_PASSWORD:-ai}@tcp(db:3306)/${MARIADB_DATABASE:-ai_assistant}?parseTime=true&multiStatements=true"
+      ANONYMIZER_URL: "http://llm-anonymizer:8080"
+      ANONYMIZER_TOKEN: ${ANONYMIZER_TOKEN:-}
+      JEV_BASE_URL: ${JEV_BASE_URL:-https://www.jevai.org}
+      JEV_API_KEY: ${JEV_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      GMAIL_ACCESS_TOKEN: ${GMAIL_ACCESS_TOKEN:-}
+      MIN_WORDS: ${MIN_WORDS:-3}
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-4}
+      MAX_RETRIES: ${MAX_RETRIES:-2}
+    ports:
+      - "8081:8081"
+    networks:
+      - internal
+    restart: unless-stopped
+
+volumes:
+  db-data:
+
+networks:
+  internal:
+    driver: bridge
