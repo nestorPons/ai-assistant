@@ -1,5 +1,7 @@
 # PLAN.md: AI Task Orchestrator & Multi-Channel Listener
 
+Decisiones compartidas: [DECISIONS.md](DECISIONS.md).
+
 ## 1. Objetivo
 
 Implementar un backend desacoplado en Go que reciba mensajes de Gmail, WhatsApp y Telegram, filtre primero los usuarios autorizados, normalice sus mensajes, construya un contexto controlado, los clasifique mediante Jev y los dirija a una de estas rutas:
@@ -14,6 +16,18 @@ Solo se hará seguimiento de los usuarios que el propietario indique explícitam
 
 ## 2. Fases de Implementación
 
+### Fase 0. Cierre documental y preparación de implementación
+
+- Cerrar la primera versión final de `SPEC.md` y `PLAN.md` antes de arrancar la construcción funcional.
+- Fijar Jev como orquestador y definir el modelo frontera inicial del extractor, los adaptadores de proveedores, `Davide/xlm-roberta-base-finetuned-panx-ner` como modelo NER principal, `tokenizer.json` compatible y la política de autenticación interna.
+- Mantener el dominio independiente del proveedor mediante una interfaz `LLMProvider`; los SDK externos solo podrán usarse dentro de adaptadores concretos.
+- Usar almacenamiento temporal en RAM para `MappingTable` en el MVP; reservar Redis para una futura ejecución multiinstancia o asíncrona.
+- Concretar los contratos HTTP de `/api/sanitize` y `/api/revert`, incluidos errores, TTL y permisos.
+- Definir el esquema SQL definitivo para MariaDB y los índices cruciales antes de crear migraciones y repositorios.
+- Preparar la lista de tareas técnicas pendientes y distinguir lo que es diseño de arquitectura de lo que es construcción real del sistema.
+
+La implementación completa del backend no se ejecutará en una sola entrega. Esta fase de cierre documental sirve para dejar fijadas las decisiones de diseño antes de comenzar la creación real del proyecto.
+
 ### Fase 1. Base del proyecto Go
 
 - Crear el módulo Go y la estructura inicial:
@@ -26,52 +40,55 @@ Solo se hará seguimiento de los usuarios que el propietario indique explícitam
   - `internal/persistence`
   - `internal/domain`
 - Configurar variables de entorno, logging y manejo de errores.
-- Añadir Docker Compose con `core-engine` y MariaDB.
+- Añadir Docker Compose con `core-engine`, `llm-anonymizer` y MariaDB.
 
 ### Fase 2. Modelo de dominio y base de datos
 
 - Definir las estructuras `IncomingMessage`, `ClassificationResult`, `ExtractionResult`, `Task` y `Client`.
 - Crear migraciones para las tablas `clients`, `raw_messages` y `tasks`.
-- Crear una tabla de configuración de usuarios autorizados, por ejemplo `tracked_users`, con canal, identificador, nombre opcional, estado activo y fechas de creación/actualización.
-- Añadir índices y restricciones de unicidad para evitar mensajes duplicados.
+- Añadir a `clients` los campos `source`, `identifier`, `name`, `tracked`, `active`, `created_at` y `updated_at`; usar una restricción única sobre (`source`, `identifier`).
+- Definir en `tasks` los campos `title`, `description`, `priority`, `estimated_hours`, `specifications` (JSON), `status`, `ai_confidence`, `created_at` y `updated_at`.
+- Añadir índices y restricciones de unicidad para evitar mensajes duplicados, especialmente `raw_messages(source, external_id)`.
+- Definir un `MappingStore` para la reversión interna del anonimizador con implementaciones `MemoryMappingStore` y, en futuro, `RedisMappingStore`.
 - Implementar repositorios con consultas parametrizadas y transacciones.
 
 ### Fase 3. Filtro de usuarios autorizados
 
 Este filtro debe ejecutarse antes de normalizar completamente el mensaje, persistirlo o enviarlo a cualquier modelo de IA.
 
-- Crear una lista blanca de usuarios autorizados por canal e identificador:
+- Usar `clients` como lista blanca, autorizando únicamente registros con `tracked = TRUE` y `active = TRUE`:
   - Email para Gmail.
   - Número de teléfono para WhatsApp.
   - ID o username para Telegram.
-- Denegar por defecto cualquier usuario que no aparezca en la lista o esté inactivo.
+- Denegar por defecto cualquier usuario que no aparezca en `clients`, tenga `tracked = FALSE` o esté inactivo.
 - Permitir activar y desactivar usuarios sin eliminar su historial.
 - Evitar guardar el contenido completo de mensajes de usuarios no autorizados.
 - No enviar mensajes no autorizados a Jev, al LLM extractor ni a ningún servicio externo.
 - Registrar únicamente un evento técnico mínimo de exclusión si es necesario para diagnóstico, sin contenido del mensaje.
-- Añadir una interfaz de administración o configuración inicial para que el propietario indique qué usuarios deben ser rastreados.
+- Añadir una interfaz de administración o configuración inicial para que el propietario cree o actualice clientes y marque explícitamente cuáles deben ser rastreados.
 
 ### Fase 4. Ingesta de mensajes
 
-Implementar inicialmente un solo canal para reducir la complejidad, preferiblemente Telegram o Gmail.
+Implementar inicialmente Gmail como único canal para reducir la complejidad.
 
 - Crear el listener del canal.
 - Aplicar el filtro de usuarios autorizados inmediatamente al recibir el evento.
 - Convertir únicamente los mensajes autorizados a `IncomingMessage`.
-- Resolver o crear el cliente mediante `ClientIdentifier`.
+- Resolver el cliente autorizado mediante `source + ClientIdentifier`; los contactos nuevos deben darse de alta previamente mediante una operación interna con `tracked = TRUE`.
 - Guardar siempre el mensaje original autorizado en `raw_messages`.
 - Añadir idempotencia usando `source + external_id`.
 
 Después incorporar los demás canales:
 
-1. Telegram.
-2. Gmail/IMAP.
+1. Gmail/IMAP.
+2. Telegram.
 3. WhatsApp mediante `whatsmeow`.
 
 ### Fase 5. Constructor de contexto
 
 - Crear el `ContextBuilder`.
 - Crear una capa `PIIRedactor` o `PersonalDataObfuscator` antes de construir el contexto para IA.
+- Delegar la sanitización efectiva en `llm-anonymizer` mediante `POST /api/sanitize`; `core-engine` no enviará prompts directamente a proveedores externos antes de recibir `clean_prompt`.
 - Detectar y reemplazar nombres, emails, teléfonos, direcciones, documentos, cuentas y otros datos personales.
 - Generar marcadores estables como `<PERSON_1>`, `<EMAIL_1>` o `<PHONE_1>` sin enviar los valores reales al proveedor de IA.
 - Mantener el contenido original únicamente en la persistencia interna protegida y fuera de logs, métricas y trazas.
@@ -80,8 +97,35 @@ Después incorporar los demás canales:
 - Evitar que el mensaje sea interpretado como instrucciones del sistema.
 - Preparar soporte futuro para contexto conversacional.
 
+### Fase 5.1. Microservicio de anonimización de prompts
+
+- Crear `cmd/llm-anonymizer` como microservicio HTTP interno en Go.
+- Compilar con `CGO_ENABLED=0`, `GOOS=linux` y `GOARCH=amd64` como binario estático.
+- Implementar `POST /api/sanitize` con validación de entrada, límites de tamaño y respuestas JSON sin PII.
+- Generar un `request_id` UUIDv4 por petición y devolverlo junto con `clean_prompt`, sin devolver la tabla de correspondencias.
+- Crear la primera fase de detección con `regexp`, validadores de DNI/NIE, IBAN, tarjetas mediante Luhn, emails y teléfonos.
+- Integrar Aho-Corasick para diccionarios y listas configuradas en memoria.
+- Definir los contratos HTTP, también en Go, para `SanitizeRequest`, `SanitizeResponse`, `RevertRequest` y `RevertResponse`.
+- Definir el modelo del `MappingStore` (`Save`, `Load`, `Delete`) y escoger `MemoryMappingStore` como implementación base del MVP.
+- Convertir y validar `Davide/xlm-roberta-base-finetuned-panx-ner` como `model.onnx`; conservar `mrm8488/bert-spanish-cased-finetuned-ner` como alternativa evaluable.
+- Incorporar `model.onnx` y `tokenizer.json` en la imagen del servicio y validar las etiquetas `PER`, `ORG` y `LOC` para español, catalán/valenciano e inglés.
+- Integrar `onnx-go`, `gorgonnx` y `sugarme/tokenizer` para NER contextual sin CGO ni runtimes nativos externos.
+- Empaquetar el servicio en una imagen Docker basada en `scratch` con el binario, el modelo ONNX, `tokenizer.json` y diccionarios.
+- Consolidar resultados, resolver solapamientos y reemplazar PII por tokens etiquetados deterministas como `{{PERSONA_1}}` o `{{DNI_1}}`.
+- Implementar `MappingTable` por petición, con almacenamiento en RAM para flujos síncronos o Redis con TTL de 5 minutos para flujos asíncronos.
+- Implementar `POST /api/revert` para restaurar tokens en texto procesado únicamente para servicios internos autenticados y autorizados.
+- Eliminar la tabla tras una reversión exitosa cuando el flujo no requiera más de una lectura.
+- Mantener consistencia de tokens mediante `conversation_id` sin enviar identificadores sensibles al proveedor LLM.
+- Garantizar que prompts, entidades originales y datos sensibles no aparezcan en logs, errores, métricas ni respuestas.
+- Probar la compilación estática, ambos endpoints, los validadores, la tokenización, la inferencia, la expiración del TTL, la autorización y la ausencia de PII en respuestas, logs y errores.
+
 ### Fase 6. Clasificación con Jev
 
+- Definir `LLMProvider` y los tipos internos de petición, respuesta y error sin referencias a SDK externos.
+- Implementar el registro y la selección por configuración de adaptadores de proveedores LLM.
+- Implementar `JevAPIProvider` contra `POST https://www.jevai.org/api/v1/decisions/route` con Bearer token.
+- Mapear `proceed_fast`, `deep_review`, `split_task` y `block` a rutas internas sin permitir que Jev ejecute herramientas ni SQL.
+- Generar un aviso técnico y detener el mensaje cuando Jev falle, agote el timeout o devuelva una respuesta inválida.
 - Definir una interfaz independiente del proveedor:
 
 ```go
@@ -90,7 +134,7 @@ type Classifier interface {
 }
 ```
 
-- Implementar el cliente del modelo Jev.
+- Implementar el adaptador OpenAI para el extractor de frontera.
 - Validar su respuesta contra JSON Schema.
 - Soportar las decisiones `db_action`, `extract` y `discard`.
 - Establecer umbrales de confianza.
@@ -115,9 +159,10 @@ type Extractor interface {
 }
 ```
 
-- Enviar al LLM únicamente los mensajes autorizados y clasificados como `extract`.
+- Implementar el adaptador del proveedor elegido para el extractor y enviarle únicamente los mensajes autorizados y clasificados como `extract`.
 - Validar la respuesta contra JSON Schema.
-- Extraer título, descripción, prioridad y horas estimadas.
+- Extraer título, descripción, prioridad, horas estimadas y las especificaciones de la tarea.
+- Persistir `tasks.specifications` como JSON con requisitos, restricciones, entregables, criterios de aceptación, dependencias y preguntas abiertas.
 - Crear la tarea en estado `pending`.
 - Guardar la confianza del modelo.
 
@@ -141,7 +186,7 @@ type Extractor interface {
 
 Aunque el dashboard queda desacoplado, conviene crear una API mínima para probar el sistema:
 
-- Gestionar la lista de usuarios autorizados.
+- Gestionar los clientes y sus campos `tracked` y `active` para controlar la lista de usuarios autorizados.
 - Listar tareas.
 - Consultar una tarea.
 - Actualizar el estado.
@@ -179,7 +224,7 @@ Crear pruebas unitarias para:
 
 Crear pruebas de integración para:
 
-- PostgreSQL o MariaDB.
+- MariaDB.
 - Flujo completo desde mensaje autorizado hasta tarea.
 - Exclusión de mensajes de usuarios no autorizados.
 - Fallos y reintentos.
@@ -193,14 +238,14 @@ El primer entregable debe incluir únicamente:
 2. MariaDB.
 3. Un canal de entrada.
 4. Lista blanca de usuarios autorizados.
-6. Persistencia protegida de clientes y mensajes autorizados.
-7. Ofuscación de datos personales.
-8. `ContextBuilder`.
-9. Clasificación mediante Jev.
-10. Extracción mediante un LLM estructurado.
-11. Creación de tareas.
-12. Pruebas del flujo completo.
-13. Docker Compose.
+5. Persistencia protegida de clientes y mensajes autorizados.
+6. `llm-anonymizer` con almacenamiento temporal en RAM.
+7. `ContextBuilder`.
+8. Clasificación mediante Jev.
+9. Extracción mediante un LLM estructurado.
+10. Creación de tareas.
+11. Pruebas del flujo completo.
+12. Docker Compose con `core-engine`, `llm-anonymizer` y MariaDB.
 
 Después del MVP se incorporarán las acciones de edición, los demás canales y la API externa.
 
@@ -217,6 +262,7 @@ El MVP se considerará terminado cuando:
 - Jev devuelva una clasificación validada.
 - Los mensajes descartables no creen tareas.
 - Los mensajes de trabajo generen una tarea con JSON válido.
+- Las especificaciones extraídas se guarden en `tasks.specifications` sin perder requisitos, restricciones ni criterios de aceptación.
 - Las acciones de guardado o edición se ejecuten mediante repositorios y transacciones.
 - Los mensajes duplicados no se procesen dos veces.
 - Los errores del LLM y del canal puedan reintentarse o quedar registrados.
@@ -227,7 +273,7 @@ El MVP se considerará terminado cuando:
 
 1. Inicializar el proyecto Go y Docker Compose.
 2. Crear el esquema SQL y los repositorios.
-3. Implementar la lista blanca de usuarios autorizados.
+3. Implementar la lista blanca mediante `clients.tracked` y `clients.active`.
 4. Implementar un adaptador de entrada con mensajes simulados.
 5. Verificar el filtro antes de persistir mensajes.
 6. Implementar `IncomingMessage` y la normalización.
