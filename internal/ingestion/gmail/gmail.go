@@ -5,6 +5,7 @@ package gmail
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -243,7 +244,7 @@ func (s *Source) getMessage(ctx context.Context, id string) (domain.IncomingMess
 		return domain.IncomingMessage{}, err
 	}
 
-	url := fmt.Sprintf("%s/users/me/messages/%s?format=metadata&metadataHeaders=From&metadataHeaders=Subject", s.baseURL, id)
+	url := fmt.Sprintf("%s/users/me/messages/%s?format=full", s.baseURL, id)
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 
@@ -262,14 +263,9 @@ func (s *Source) getMessage(ctx context.Context, id string) (domain.IncomingMess
 	}
 
 	var msg struct {
-		ID      string `json:"id"`
-		Snippet string `json:"snippet"`
-		Payload struct {
-			Headers []struct {
-				Name  string `json:"name"`
-				Value string `json:"value"`
-			} `json:"headers"`
-		} `json:"payload"`
+		ID      string    `json:"id"`
+		Snippet string    `json:"snippet"`
+		Payload gmailPart `json:"payload"`
 	}
 	if err := json.Unmarshal(data, &msg); err != nil {
 		return domain.IncomingMessage{}, err
@@ -290,7 +286,11 @@ func (s *Source) getMessage(ctx context.Context, id string) (domain.IncomingMess
 		return domain.IncomingMessage{}, errors.New("gmail: remitente sin email")
 	}
 
-	content := strings.TrimSpace(subject + "\n" + msg.Snippet)
+	body := extractPlainText(msg.Payload)
+	if body == "" {
+		body = msg.Snippet
+	}
+	content := strings.TrimSpace(subject + "\n" + body)
 
 	return domain.IncomingMessage{
 		ID:               msg.ID,
@@ -300,6 +300,53 @@ func (s *Source) getMessage(ctx context.Context, id string) (domain.IncomingMess
 		RawContent:       content,
 		ReceivedAt:       time.Now().UTC(),
 	}, nil
+}
+
+// gmailPart modela la estructura payload/parts de la API Gmail (format=full).
+type gmailPart struct {
+	MimeType string `json:"mimeType"`
+	Filename string `json:"filename"`
+	Body     struct {
+		Size int    `json:"size"`
+		Data string `json:"data"`
+	} `json:"body"`
+	Parts   []gmailPart `json:"parts"`
+	Headers []struct {
+		Name  string `json:"name"`
+		Value string `json:"value"`
+	} `json:"headers"`
+}
+
+// extractPlainText devuelve el texto plano del mensaje, recorriendo las partes
+// MIME y prefiriendo text/plain sobre text/html. Devuelve "" si no hay cuerpo.
+func extractPlainText(p gmailPart) string {
+	if p.MimeType == "text/plain" {
+		if s := decodeBody(p.Body.Data); s != "" {
+			return s
+		}
+	}
+	var html string
+	for _, part := range p.Parts {
+		if s := extractPlainText(part); s != "" {
+			return s
+		}
+		if part.MimeType == "text/html" && html == "" {
+			html = decodeBody(part.Body.Data)
+		}
+	}
+	return html
+}
+
+// decodeBody decodifica el campo body.data (base64url) de la API Gmail.
+func decodeBody(data string) string {
+	if data == "" {
+		return ""
+	}
+	dec, err := base64.URLEncoding.DecodeString(data)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(dec))
 }
 
 var emailRe = regexp.MustCompile(`<([^>]+)>`)

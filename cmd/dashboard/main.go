@@ -83,6 +83,7 @@ func main() {
 
 func printHash() error {
 	var result string
+	app := tview.NewApplication()
 	field := tview.NewInputField().SetLabel("Contraseña ").SetMaskCharacter('*').SetFieldWidth(30)
 	form := tview.NewForm().
 		AddFormItem(field).
@@ -92,11 +93,12 @@ func printHash() error {
 				return
 			}
 			result = h
+			app.Stop()
 		}).
-		AddButton("Salir", func() {})
+		AddButton("Salir", func() { app.Stop() })
 	form.SetBorder(true).SetTitle(" Generar hash de contraseña ").SetTitleAlign(tview.AlignCenter)
 
-	app := tview.NewApplication()
+	app.EnableMouse(true)
 	app.SetRoot(form, true)
 	if err := app.Run(); err != nil {
 		return err

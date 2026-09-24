@@ -38,6 +38,7 @@ type Dashboard struct {
 	activity *ActivityLog
 
 	user    string
+	current string
 	content *tview.Pages
 	menu    *tview.List
 	header  *tview.TextView
@@ -77,6 +78,7 @@ func (d *Dashboard) Run() error {
 	d.app.EnableMouse(true)
 	d.app.SetInputCapture(d.capture)
 	d.pages = tview.NewPages()
+	applyTheme()
 	d.buildLogin()
 	d.pages.SwitchToPage("login")
 	d.app.SetRoot(d.pages, true)
@@ -89,7 +91,21 @@ func (d *Dashboard) capture(ev *tcell.EventKey) *tcell.EventKey {
 		d.closeModal()
 		return nil
 	}
+	if ev.Key() == tcell.KeyTab && d.content != nil && !d.pages.HasPage("modal") {
+		d.togglePanel()
+		return nil
+	}
 	return ev
+}
+
+func (d *Dashboard) togglePanel() {
+	if d.app.GetFocus() == d.menu {
+		if v, ok := d.views[d.current]; ok {
+			d.app.SetFocus(v.Primitive())
+		}
+	} else {
+		d.app.SetFocus(d.menu)
+	}
 }
 
 // ── Login ────────────────────────────────────────────────────────
@@ -168,7 +184,7 @@ func (d *Dashboard) buildShell() {
 
 	d.header = tview.NewTextView().SetDynamicColors(true)
 	d.footer = tview.NewTextView().SetDynamicColors(true)
-	d.footer.SetText(" [gray]↑↓/Tab mover · Enter abrir · Ratón activo · Esc cerrar modal · Ctrl+C salir[-]")
+	d.footer.SetText(" [gray]Tab cambiar panel · ↑↓/Enter mover/abrir · Ratón activo · Esc cerrar modal · Ctrl+C salir[-]")
 
 	main := tview.NewFlex().
 		AddItem(d.menu, 24, 1, true).
@@ -194,6 +210,7 @@ var sectionTitles = map[string]string{
 }
 
 func (d *Dashboard) navigate(name string) {
+	d.current = name
 	d.content.SwitchToPage(name)
 	if v, ok := d.views[name]; ok {
 		v.Refresh()

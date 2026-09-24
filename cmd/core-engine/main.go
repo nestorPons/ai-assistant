@@ -75,8 +75,8 @@ func main() {
 	}
 
 	anonURL := cfg.AnonymizerURL
-	if cfg.DatabaseDSN == "" {
-		// Demo autocontenido: se arranca un anonimizador embebido en local.
+	if anonURL == "" {
+		// Sin anonimizador remoto: se arranca uno embebido en local.
 		anonURL = startEmbeddedAnonymizer(logger)
 	}
 

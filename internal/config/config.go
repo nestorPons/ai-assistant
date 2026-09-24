@@ -71,7 +71,7 @@ func Load() (Config, error) {
 	cfg := Config{
 		HTTPAddr:                getenv("HTTP_ADDR", ":8081"),
 		DatabaseDSN:             getenv("DATABASE_DSN", ""),
-		AnonymizerURL:           getenv("ANONYMIZER_URL", "http://llm-anonymizer:8080"),
+		AnonymizerURL:           getenv("ANONYMIZER_URL", ""),
 		AnonymizerToken:         getenv("ANONYMIZER_TOKEN", ""),
 		JevBaseURL:              getenv("JEV_BASE_URL", "https://www.jevai.org"),
 		JevAPIKey:               getenv("JEV_API_KEY", ""),

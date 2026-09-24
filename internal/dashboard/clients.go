@@ -165,7 +165,7 @@ func (v *clientsView) newClient() {
 	form.AddButton("Cancelar", v.d.closeModal)
 	form.SetBorder(true).SetTitle(" Nuevo cliente ").SetTitleAlign(tview.AlignCenter)
 
-	v.d.openModal(form, 62, 16)
+	v.d.openModal(form, 62, 18)
 }
 
 func (v *clientsView) editSelected() {
@@ -176,10 +176,13 @@ func (v *clientsView) editSelected() {
 	var name string
 	tracked, active := c.Tracked, c.Active
 
+	sourceField := tview.NewInputField().SetLabel("Canal").SetText(string(c.Source)).SetFieldWidth(32).SetDisabled(true)
+	identifierField := tview.NewInputField().SetLabel("Identificador").SetText(c.Identifier).SetFieldWidth(32).SetDisabled(true)
+
 	form := tview.NewForm().
 		AddTextView("", "", 0, 1, true, false).
-		AddInputField("Canal", string(c.Source), 32, nil, nil).
-		AddInputField("Identificador", c.Identifier, 32, nil, nil).
+		AddFormItem(sourceField).
+		AddFormItem(identifierField).
 		AddInputField("Nombre", c.Name, 32, nil, func(t string) { name = t }).
 		AddCheckbox("Rastreado", c.Tracked, func(b bool) { tracked = b }).
 		AddCheckbox("Activo", c.Active, func(b bool) { active = b })
@@ -199,5 +202,5 @@ func (v *clientsView) editSelected() {
 	form.AddButton("Cancelar", v.d.closeModal)
 	form.SetBorder(true).SetTitle(" Editar cliente ").SetTitleAlign(tview.AlignCenter)
 
-	v.d.openModal(form, 62, 16)
+	v.d.openModal(form, 62, 18)
 }
