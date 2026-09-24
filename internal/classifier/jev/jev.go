@@ -86,7 +86,7 @@ func (p *Provider) Classify(ctx context.Context, input classifier.Classification
 	}
 
 	if httpResp.StatusCode >= 400 {
-		return result, llm.NewError(llm.ErrorUnknown, fmt.Errorf("jev status %d: %s", httpResp.StatusCode, strings.TrimSpace(string(data))))
+		return result, categorizeStatus(httpResp.StatusCode, data)
 	}
 
 	var resp routeResponse
@@ -103,48 +103,21 @@ func (p *Provider) Classify(ctx context.Context, input classifier.Classification
 	return mapDecision(*resp.Data)
 }
 
-// mapDecision traduce la decisión de Jev a la ruta interna del sistema.
-// Acepta tanto el vocabulario de gating (proceed_fast|deep_review|split_task|block)
-// como el vocabulario interno (db_action|extract|discard).
+// mapDecision traduce la decisión de Jev a la ruta interna del sistema usando
+// el vocabulario compartido de classifier.RouteDecision.
 func mapDecision(d routeData) (classifier.ClassificationResult, error) {
-	r := classifier.ClassificationResult{
-		Confidence: d.Confidence,
-		Reason:     d.Guidance,
-		Action:     d.Action,
+	dec, needsReview, blocked, err := classifier.RouteDecision(d.Decision, d.Route)
+	if err != nil {
+		return classifier.ClassificationResult{}, llm.NewError(llm.ErrorInvalidResponse, err)
 	}
-
-	decision := strings.ToLower(strings.TrimSpace(d.Decision))
-	switch decision {
-	case string(classifier.DecisionDBAction), string(classifier.DecisionExtract), string(classifier.DecisionDiscard):
-		r.Decision = classifier.Decision(decision)
-		return r, nil
-
-	case "proceed_fast":
-		switch strings.ToLower(strings.TrimSpace(d.Route)) {
-		case "", "extract":
-			r.Decision = classifier.DecisionExtract
-		case "db_action":
-			r.Decision = classifier.DecisionDBAction
-		case "discard":
-			r.Decision = classifier.DecisionDiscard
-		default:
-			r.Decision = classifier.DecisionExtract
-		}
-		return r, nil
-
-	case "deep_review", "split_task":
-		r.NeedsReview = true
-		r.Decision = classifier.DecisionDiscard
-		return r, nil
-
-	case "block":
-		r.Blocked = true
-		r.Decision = classifier.DecisionDiscard
-		return r, nil
-
-	default:
-		return r, llm.NewError(llm.ErrorInvalidResponse, fmt.Errorf("decisión desconocida: %q", d.Decision))
-	}
+	return classifier.ClassificationResult{
+		Decision:    dec,
+		Confidence:  d.Confidence,
+		Reason:      d.Guidance,
+		Action:      d.Action,
+		NeedsReview: needsReview,
+		Blocked:     blocked,
+	}, nil
 }
 
 func categorizeErr(err error) error {
@@ -155,4 +128,21 @@ func categorizeErr(err error) error {
 		return llm.NewError(llm.ErrorTimeout, err)
 	}
 	return llm.NewError(llm.ErrorUnavailable, err)
+}
+
+// categorizeStatus normaliza el código HTTP de Jev a una categoría de error.
+func categorizeStatus(status int, body []byte) error {
+	msg := strings.TrimSpace(string(body))
+	switch status {
+	case http.StatusUnauthorized, http.StatusForbidden:
+		return llm.NewError(llm.ErrorAuthentication, fmt.Errorf("jev status %d: %s", status, msg))
+	case http.StatusTooManyRequests:
+		return llm.NewError(llm.ErrorRateLimit, fmt.Errorf("jev status %d: %s", status, msg))
+	case http.StatusRequestTimeout, http.StatusGatewayTimeout:
+		return llm.NewError(llm.ErrorTimeout, fmt.Errorf("jev status %d: %s", status, msg))
+	case http.StatusBadGateway, http.StatusServiceUnavailable:
+		return llm.NewError(llm.ErrorUnavailable, fmt.Errorf("jev status %d: %s", status, msg))
+	default:
+		return llm.NewError(llm.ErrorUnknown, fmt.Errorf("jev status %d: %s", status, msg))
+	}
 }

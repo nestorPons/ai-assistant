@@ -36,6 +36,14 @@ type IncomingMessage struct {
 	ReceivedAt       time.Time `json:"received_at"`
 }
 
+// SyncState guarda el cursor de sincronización incremental de un canal.
+type SyncState struct {
+	Source    Source    `json:"source"`
+	Cursor    string    `json:"cursor"`
+	ExpiresAt time.Time `json:"expires_at,omitempty"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
 // Client representa un contacto autorizado (lista blanca por canal e identificador).
 type Client struct {
 	ID         string    `json:"id"`

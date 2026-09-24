@@ -4,6 +4,8 @@ package classifier
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/nestorPons/ai-assistant/internal/domain"
 )
@@ -48,4 +50,37 @@ type ClassificationResult struct {
 // Classifier es la interfaz independiente del proveedor.
 type Classifier interface {
 	Classify(ctx context.Context, input ClassificationInput) (ClassificationResult, error)
+}
+
+// RouteDecision traduce la decisión de un orquestador externo al vocabulario
+// interno. Acepta tanto el vocabulario de gating
+// (proceed_fast|deep_review|split_task|block) como el interno
+// (db_action|extract|discard). proceed_fast resuelve la ruta vía route
+// (por defecto extract).
+func RouteDecision(decision, route string) (dec Decision, needsReview, blocked bool, err error) {
+	switch strings.ToLower(strings.TrimSpace(decision)) {
+	case string(DecisionDBAction), string(DecisionExtract), string(DecisionDiscard):
+		return Decision(strings.ToLower(strings.TrimSpace(decision))), false, false, nil
+
+	case "proceed_fast":
+		switch strings.ToLower(strings.TrimSpace(route)) {
+		case "", "extract":
+			return DecisionExtract, false, false, nil
+		case "db_action":
+			return DecisionDBAction, false, false, nil
+		case "discard":
+			return DecisionDiscard, false, false, nil
+		default:
+			return DecisionExtract, false, false, nil
+		}
+
+	case "deep_review", "split_task":
+		return DecisionDiscard, true, false, nil
+
+	case "block":
+		return DecisionDiscard, false, true, nil
+
+	default:
+		return "", false, false, fmt.Errorf("decisión desconocida: %q", decision)
+	}
 }

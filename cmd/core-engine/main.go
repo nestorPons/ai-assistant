@@ -16,14 +16,17 @@ import (
 	"github.com/nestorPons/ai-assistant/internal/anonymizer/detect"
 	"github.com/nestorPons/ai-assistant/internal/classifier"
 	"github.com/nestorPons/ai-assistant/internal/classifier/jev"
+	"github.com/nestorPons/ai-assistant/internal/classifier/remote"
 	"github.com/nestorPons/ai-assistant/internal/config"
 	"github.com/nestorPons/ai-assistant/internal/domain"
 	"github.com/nestorPons/ai-assistant/internal/extractor"
 	"github.com/nestorPons/ai-assistant/internal/httpapi"
 	"github.com/nestorPons/ai-assistant/internal/ingestion"
 	"github.com/nestorPons/ai-assistant/internal/ingestion/gmail"
+	"github.com/nestorPons/ai-assistant/internal/ingestion/pubsub"
 	"github.com/nestorPons/ai-assistant/internal/ingestion/simulated"
 	"github.com/nestorPons/ai-assistant/internal/llm/openai"
+	"github.com/nestorPons/ai-assistant/internal/oauth"
 	"github.com/nestorPons/ai-assistant/internal/persistence"
 	"github.com/nestorPons/ai-assistant/internal/pipeline"
 	"github.com/nestorPons/ai-assistant/internal/worker"
@@ -58,15 +61,8 @@ func main() {
 		logger.Warn("sin DATABASE_DSN, usando almacén en memoria (demo)")
 	}
 
-	// Clasificador (Jev real o mock).
-	var cls classifier.Classifier
-	if cfg.JevAPIKey != "" {
-		cls = jev.New(cfg.JevBaseURL, cfg.JevAPIKey, cfg.JevTimeout)
-		logger.Info("clasificador: Jev")
-	} else {
-		cls = classifier.NewMockRuleClassifier()
-		logger.Warn("sin JEV_API_KEY, usando clasificador de reglas (demo)")
-	}
+	// Clasificador (Jev / LLM remoto / cadena de fallback).
+	cls := buildClassifier(cfg, logger)
 
 	// Extractor (OpenAI real o mock).
 	var ext extractor.Extractor
@@ -87,7 +83,7 @@ func main() {
 	anon := anonymizer.NewClient(anonURL, cfg.AnonymizerToken, cfg.AnonymizerTimeout)
 
 	// Canal de entrada.
-	sources := buildSources(cfg)
+	sources, pubsubRunner := buildSources(cfg, store)
 
 	// En modo demo (sin canal real) se da de alta un cliente autorizado.
 	if cfg.DatabaseDSN == "" {
@@ -124,19 +120,108 @@ func main() {
 			}
 		}(src)
 	}
+	if pubsubRunner != nil {
+		go func() {
+			logger.Info("worker pubsub iniciado")
+			if err := pubsubRunner(ctx, input); err != nil && ctx.Err() == nil {
+				logger.Error("worker pubsub detenido", "error", err)
+			}
+		}()
+	}
 
 	<-ctx.Done()
 	logger.Info("deteniendo core-engine")
 	time.Sleep(100 * time.Millisecond)
 }
 
-func buildSources(cfg config.Config) []ingestion.Source {
+func buildClassifier(cfg config.Config, logger *slog.Logger) classifier.Classifier {
+	var jevCls, llmCls classifier.Classifier
+
+	if cfg.JevAPIKey != "" {
+		jevCls = jev.New(cfg.JevBaseURL, cfg.JevAPIKey, cfg.JevTimeout)
+	}
+
+	if cfg.OpenAIAPIKey != "" {
+		model := cfg.ClassifierModel
+		if model == "" {
+			model = cfg.OpenAIModel
+		}
+		llmCls = remote.New(openai.New(cfg.OpenAIAPIKey, cfg.OpenAIBaseURL), model, logger)
+	}
+
+	rules := classifier.NewMockRuleClassifier()
+
+	switch cfg.ClassifierMode {
+	case "jev":
+		if jevCls != nil {
+			logger.Info("clasificador: Jev")
+			return jevCls
+		}
+		logger.Warn("CLASSIFIER_MODE=jev sin JEV_API_KEY, usando reglas (demo)")
+		return rules
+
+	case "llm":
+		if llmCls != nil {
+			logger.Info("clasificador: LLM remoto", "model", cfg.ClassifierModel)
+			return llmCls
+		}
+		logger.Warn("CLASSIFIER_MODE=llm sin OPENAI_API_KEY, usando reglas (demo)")
+		return rules
+
+	default:
+		stages := make([]classifier.Classifier, 0, 3)
+		if jevCls != nil {
+			stages = append(stages, jevCls)
+		}
+		if llmCls != nil {
+			stages = append(stages, llmCls)
+		}
+		stages = append(stages, rules)
+		logger.Info("clasificador: cadena", "etapas", len(stages),
+			"jev", jevCls != nil, "llm", llmCls != nil)
+		return classifier.NewChain(logger, stages...)
+	}
+}
+
+func buildSources(cfg config.Config, store persistence.Store) ([]ingestion.Source, func(context.Context, chan<- domain.IncomingMessage) error) {
 	var sources []ingestion.Source
+	var runner func(context.Context, chan<- domain.IncomingMessage) error
 
 	if cfg.JevAPIKey != "" || cfg.OpenAIAPIKey != "" {
 		// Con credenciales reales se usa Gmail como canal principal.
-		if token := os.Getenv("GMAIL_ACCESS_TOKEN"); token != "" {
-			sources = append(sources, gmail.New(gmail.Config{AccessToken: token}))
+		hasRefresh := cfg.GmailClientID != "" && cfg.GmailClientSecret != "" && cfg.GmailRefreshToken != ""
+		if cfg.GmailAccessToken != "" || hasRefresh {
+			tokens := oauth.New(oauth.Config{
+				AccessToken:  cfg.GmailAccessToken,
+				ClientID:     cfg.GmailClientID,
+				ClientSecret: cfg.GmailClientSecret,
+				RefreshToken: cfg.GmailRefreshToken,
+			})
+
+			gcfg := gmail.Config{
+				Tokens: tokens,
+				Query:  cfg.GmailQuery,
+				Sync:   store,
+				Logger: slog.Default(),
+			}
+
+			pull := cfg.GmailPushMode == "pull" && cfg.GmailPubSubTopic != "" && cfg.GmailPubSubSubscription != ""
+			if pull {
+				gcfg.TopicName = cfg.GmailPubSubTopic
+				gcfg.Fallback = cfg.GmailPollFallback
+			}
+
+			gs := gmail.New(gcfg)
+			sources = append(sources, gs)
+
+			if pull {
+				pc := pubsub.New(tokens)
+				runner = func(ctx context.Context, out chan<- domain.IncomingMessage) error {
+					return pc.Run(ctx, cfg.GmailPubSubSubscription, func(ctx context.Context) error {
+						return gs.Sync(ctx, out)
+					})
+				}
+			}
 		}
 	}
 
@@ -144,7 +229,7 @@ func buildSources(cfg config.Config) []ingestion.Source {
 		// Sin canal real se usa la fuente simulada para validar el flujo.
 		sources = append(sources, simulated.NewDefault())
 	}
-	return sources
+	return sources, runner
 }
 
 // seedDemoClient da de alta un cliente autorizado para la fuente simulada.

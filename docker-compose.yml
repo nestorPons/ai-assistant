@@ -11,6 +11,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+    ports:
+      - "3307:3306"
     volumes:
       - db-data:/var/lib/mysql
     networks:
@@ -47,7 +49,17 @@ services:
       OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      CLASSIFIER_MODE: ${CLASSIFIER_MODE:-chain}
+      CLASSIFIER_MODEL: ${CLASSIFIER_MODEL:-}
+      GMAIL_CLIENT_ID: ${GMAIL_CLIENT_ID:-}
+      GMAIL_CLIENT_SECRET: ${GMAIL_CLIENT_SECRET:-}
+      GMAIL_REFRESH_TOKEN: ${GMAIL_REFRESH_TOKEN:-}
       GMAIL_ACCESS_TOKEN: ${GMAIL_ACCESS_TOKEN:-}
+      GMAIL_QUERY: ${GMAIL_QUERY:-}
+      GMAIL_PUSH_MODE: ${GMAIL_PUSH_MODE:-poll}
+      GMAIL_PUBSUB_TOPIC: ${GMAIL_PUBSUB_TOPIC:-}
+      GMAIL_PUBSUB_SUBSCRIPTION: ${GMAIL_PUBSUB_SUBSCRIPTION:-}
+      GMAIL_POLL_FALLBACK: ${GMAIL_POLL_FALLBACK:-5m}
       MIN_WORDS: ${MIN_WORDS:-3}
       WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-4}
       MAX_RETRIES: ${MAX_RETRIES:-2}

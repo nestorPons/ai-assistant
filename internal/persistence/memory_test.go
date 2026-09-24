@@ -89,3 +89,31 @@ func TestMemoryStoreTasks(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestMemoryStoreSyncState(t *testing.T) {
+	ctx := context.Background()
+	s := NewMemoryStore()
+
+	if _, err := s.GetSyncState(ctx, domain.SourceGmail); err != ErrNotFound {
+		t.Fatalf("esperaba ErrNotFound, fue %v", err)
+	}
+
+	if err := s.SaveSyncState(ctx, &domain.SyncState{Source: domain.SourceGmail, Cursor: "100"}); err != nil {
+		t.Fatal(err)
+	}
+	st, err := s.GetSyncState(ctx, domain.SourceGmail)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Cursor != "100" {
+		t.Errorf("cursor = %q, want 100", st.Cursor)
+	}
+
+	if err := s.SaveSyncState(ctx, &domain.SyncState{Source: domain.SourceGmail, Cursor: "200"}); err != nil {
+		t.Fatal(err)
+	}
+	st, _ = s.GetSyncState(ctx, domain.SourceGmail)
+	if st.Cursor != "200" {
+		t.Errorf("cursor = %q, want 200", st.Cursor)
+	}
+}

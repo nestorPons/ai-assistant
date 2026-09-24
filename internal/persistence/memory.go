@@ -20,6 +20,7 @@ type MemoryStore struct {
 	rawMessages map[string]*domain.RawMessage // key: id
 	tasks       map[string]*domain.Task       // key: id
 	seen        map[string]bool               // key: source|external_id
+	syncStates  map[string]*domain.SyncState  // key: source
 }
 
 // NewMemoryStore crea un almacén en memoria vacío.
@@ -30,6 +31,7 @@ func NewMemoryStore() *MemoryStore {
 		rawMessages: make(map[string]*domain.RawMessage),
 		tasks:       make(map[string]*domain.Task),
 		seen:        make(map[string]bool),
+		syncStates:  make(map[string]*domain.SyncState),
 	}
 }
 
@@ -207,5 +209,25 @@ func (s *MemoryStore) UpdateTask(_ context.Context, task *domain.Task) error {
 	t.EstimatedHours = task.EstimatedHours
 	t.Status = task.Status
 	t.UpdatedAt = time.Now().UTC()
+	return nil
+}
+
+func (s *MemoryStore) GetSyncState(_ context.Context, source domain.Source) (*domain.SyncState, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	st, ok := s.syncStates[string(source)]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	cp := *st
+	return &cp, nil
+}
+
+func (s *MemoryStore) SaveSyncState(_ context.Context, state *domain.SyncState) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	state.UpdatedAt = time.Now().UTC()
+	cp := *state
+	s.syncStates[string(state.Source)] = &cp
 	return nil
 }

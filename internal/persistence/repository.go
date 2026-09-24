@@ -21,6 +21,7 @@ type Store interface {
 	ClientRepository
 	RawMessageRepository
 	TaskRepository
+	SyncStateRepository
 }
 
 // ClientRepository gestiona la lista blanca de contactos autorizados.
@@ -54,4 +55,12 @@ type TaskRepository interface {
 	ListTasks(ctx context.Context, status *domain.TaskStatus) ([]domain.Task, error)
 	UpdateTaskStatus(ctx context.Context, id string, status domain.TaskStatus) error
 	UpdateTask(ctx context.Context, task *domain.Task) error
+}
+
+// SyncStateRepository gestiona el cursor de sincronización incremental por canal.
+type SyncStateRepository interface {
+	// GetSyncState devuelve el cursor guardado o ErrNotFound si no existe.
+	GetSyncState(ctx context.Context, source domain.Source) (*domain.SyncState, error)
+	// SaveSyncState crea o actualiza el cursor del canal.
+	SaveSyncState(ctx context.Context, state *domain.SyncState) error
 }

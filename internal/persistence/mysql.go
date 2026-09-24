@@ -16,6 +16,9 @@ import (
 //go:embed migrations/001_init.sql
 var initSchema string
 
+//go:embed migrations/002_sync_state.sql
+var syncStateSchema string
+
 // MySQLStore implementa Store sobre MariaDB.
 type MySQLStore struct {
 	db *sql.DB
@@ -54,8 +57,12 @@ func (s *MySQLStore) Close() error { return s.db.Close() }
 
 // migrate aplica el esquema inicial de forma idempotente.
 func (s *MySQLStore) migrate(ctx context.Context) error {
-	_, err := s.db.ExecContext(ctx, initSchema)
-	return err
+	for _, stmt := range []string{initSchema, syncStateSchema} {
+		if _, err := s.db.ExecContext(ctx, stmt); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *MySQLStore) FindBySourceAndIdentifier(ctx context.Context, source domain.Source, identifier string) (*domain.Client, error) {
@@ -250,6 +257,37 @@ func (s *MySQLStore) UpdateTask(ctx context.Context, task *domain.Task) error {
 		return err
 	}
 	return ensureAffected(res)
+}
+
+func (s *MySQLStore) GetSyncState(ctx context.Context, source domain.Source) (*domain.SyncState, error) {
+	const q = `SELECT source, cursor_value, expires_at, updated_at FROM sync_state WHERE source = ? LIMIT 1`
+	st := &domain.SyncState{}
+	var expires sql.NullTime
+	err := s.db.QueryRowContext(ctx, q, string(source)).Scan(&st.Source, &st.Cursor, &expires, &st.UpdatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	if expires.Valid {
+		st.ExpiresAt = expires.Time
+	}
+	return st, nil
+}
+
+func (s *MySQLStore) SaveSyncState(ctx context.Context, state *domain.SyncState) error {
+	state.UpdatedAt = time.Now().UTC()
+	var expires any
+	if !state.ExpiresAt.IsZero() {
+		expires = state.ExpiresAt
+	}
+	_, err := s.db.ExecContext(ctx,
+		`INSERT INTO sync_state (source, cursor_value, expires_at, updated_at)
+		 VALUES (?, ?, ?, ?)
+		 ON DUPLICATE KEY UPDATE cursor_value = VALUES(cursor_value), expires_at = VALUES(expires_at), updated_at = VALUES(updated_at)`,
+		string(state.Source), state.Cursor, expires, state.UpdatedAt)
+	return err
 }
 
 type scanner interface {

@@ -2,6 +2,8 @@
 
 Decisiones compartidas: [DECISIONS.md](DECISIONS.md).
 
+> Nota de vigencia: este documento describe el diseño original con **Jev** como orquestador único. La clasificación quedó abstraída tras `classifier.Classifier` con cadena de fallback (`CLASSIFIER_MODE`). Jev está deshabilitado temporalmente y el clasificador activo es un LLM OpenAI. Ver [docs/03-CLASSIFIER.md](../03-CLASSIFIER.md) y las actualizaciones en `DECISIONS.md`.
+
 ## 1. Visión General
 Sistema backend desacoplado escrito en **Go** que monitoriza múltiples fuentes de comunicación (Gmail, WhatsApp, Telegram), normaliza los mensajes entrantes, analiza su contenido mediante modelos de IA con salida estructurada (JSON Schema) para detectar asignaciones de tareas y las persiste en una base de datos relacional. Los proveedores externos se integran exclusivamente mediante adaptadores internos, de modo que el dominio no depende de OpenAI, DeepSeek ni de otro SDK concreto.
 

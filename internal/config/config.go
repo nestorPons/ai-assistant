@@ -30,6 +30,23 @@ type Config struct {
 	OpenAIBaseURL string
 	OpenAIModel   string
 
+	// Clasificador.
+	ClassifierMode  string
+	ClassifierModel string
+
+	// Gmail.
+	GmailAccessToken  string
+	GmailClientID     string
+	GmailClientSecret string
+	GmailRefreshToken string
+	GmailQuery        string
+
+	// Gmail push (Pub/Sub).
+	GmailPushMode           string
+	GmailPubSubTopic        string
+	GmailPubSubSubscription string
+	GmailPollFallback       time.Duration
+
 	// Pre-filtro ligero.
 	MinWords int
 
@@ -52,23 +69,34 @@ type Config struct {
 // Load lee la configuración desde el entorno aplicando valores por defecto.
 func Load() (Config, error) {
 	cfg := Config{
-		HTTPAddr:              getenv("HTTP_ADDR", ":8081"),
-		DatabaseDSN:           getenv("DATABASE_DSN", ""),
-		AnonymizerURL:         getenv("ANONYMIZER_URL", "http://llm-anonymizer:8080"),
-		AnonymizerToken:       getenv("ANONYMIZER_TOKEN", ""),
-		JevBaseURL:            getenv("JEV_BASE_URL", "https://www.jevai.org"),
-		JevAPIKey:             getenv("JEV_API_KEY", ""),
-		OpenAIAPIKey:          getenv("OPENAI_API_KEY", ""),
-		OpenAIBaseURL:         getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
-		OpenAIModel:           getenv("OPENAI_MODEL", "gpt-4o-mini"),
-		MinWords:              getenvInt("MIN_WORDS", 3),
-		ExtractConfidence:     getenvFloat("EXTRACT_CONFIDENCE", 0.6),
-		ReviewBelowConfidence: getenvFloat("REVIEW_BELOW_CONFIDENCE", 0.5),
-		WorkerConcurrency:     getenvInt("WORKER_CONCURRENCY", 4),
-		AnonymizerTimeout:     getenvDuration("ANONYMIZER_TIMEOUT", 10*time.Second),
-		JevTimeout:            getenvDuration("JEV_TIMEOUT", 15*time.Second),
-		ExtractorTimeout:      getenvDuration("EXTRACTOR_TIMEOUT", 30*time.Second),
-		MaxRetries:            getenvInt("MAX_RETRIES", 2),
+		HTTPAddr:                getenv("HTTP_ADDR", ":8081"),
+		DatabaseDSN:             getenv("DATABASE_DSN", ""),
+		AnonymizerURL:           getenv("ANONYMIZER_URL", "http://llm-anonymizer:8080"),
+		AnonymizerToken:         getenv("ANONYMIZER_TOKEN", ""),
+		JevBaseURL:              getenv("JEV_BASE_URL", "https://www.jevai.org"),
+		JevAPIKey:               getenv("JEV_API_KEY", ""),
+		OpenAIAPIKey:            getenv("OPENAI_API_KEY", ""),
+		OpenAIBaseURL:           getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+		OpenAIModel:             getenv("OPENAI_MODEL", "gpt-4o-mini"),
+		ClassifierMode:          getenv("CLASSIFIER_MODE", "chain"),
+		ClassifierModel:         getenv("CLASSIFIER_MODEL", ""),
+		GmailAccessToken:        getenv("GMAIL_ACCESS_TOKEN", ""),
+		GmailClientID:           getenv("GMAIL_CLIENT_ID", ""),
+		GmailClientSecret:       getenv("GMAIL_CLIENT_SECRET", ""),
+		GmailRefreshToken:       getenv("GMAIL_REFRESH_TOKEN", ""),
+		GmailQuery:              getenv("GMAIL_QUERY", ""),
+		GmailPushMode:           getenv("GMAIL_PUSH_MODE", "poll"),
+		GmailPubSubTopic:        getenv("GMAIL_PUBSUB_TOPIC", ""),
+		GmailPubSubSubscription: getenv("GMAIL_PUBSUB_SUBSCRIPTION", ""),
+		GmailPollFallback:       getenvDuration("GMAIL_POLL_FALLBACK", 5*time.Minute),
+		MinWords:                getenvInt("MIN_WORDS", 3),
+		ExtractConfidence:       getenvFloat("EXTRACT_CONFIDENCE", 0.6),
+		ReviewBelowConfidence:   getenvFloat("REVIEW_BELOW_CONFIDENCE", 0.5),
+		WorkerConcurrency:       getenvInt("WORKER_CONCURRENCY", 4),
+		AnonymizerTimeout:       getenvDuration("ANONYMIZER_TIMEOUT", 10*time.Second),
+		JevTimeout:              getenvDuration("JEV_TIMEOUT", 15*time.Second),
+		ExtractorTimeout:        getenvDuration("EXTRACTOR_TIMEOUT", 30*time.Second),
+		MaxRetries:              getenvInt("MAX_RETRIES", 2),
 	}
 
 	if strings.TrimSpace(cfg.DatabaseDSN) == "" {

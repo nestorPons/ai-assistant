@@ -13,6 +13,11 @@ Este documento es la fuente única de verdad para las decisiones compartidas por
 lenguaje-backend: Go
 base-de-datos: MariaDB
 orquestador: Jev
+clasificador: cadena-con-fallback
+clasificador-modo-env: CLASSIFIER_MODE
+clasificador-MVP: LLM-remoto-OpenAI
+clasificador-MVP-modelo: gpt-4o-mini
+clasificador-estado: Jev-deshabilitado-temporalmente
 modelo-NER: Davide/xlm-roberta-base-finetuned-panx-ner
 modelo-NER-alternativo: mrm8488/bert-spanish-cased-finetuned-ner
 artefacto-modelo-NER: model.onnx
@@ -51,3 +56,9 @@ revision-manual-estado: needs_review
 ## Criterio de mantenimiento
 
 Las modificaciones a estos atributos deben hacerse únicamente en este documento. `SPEC.md` explica el diseño técnico y `PLAN.md` organiza su implementación.
+
+## Actualizaciones
+
+- `CLASSIFIER_MODE` reemplaza al orquestador único: `chain` (Jev → LLM → reglas → revisión), `jev` o `llm`.
+- Jev deshabilitado temporalmente (429 y clasificaciones erróneas); se usa `llm` con `gpt-4o-mini`. Detalle en `../03-CLASSIFIER.md`.
+- La especificación original (`SPEC.md`) describe Jev como orquestador; el clasificador LLM conserva el mismo contrato de decisión vía `classifier.RouteDecision`.
