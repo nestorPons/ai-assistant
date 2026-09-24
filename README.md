@@ -33,6 +33,27 @@ docker compose up --build
 go test ./...
 ```
 
+## Dashboard TUI (estilo Filament)
+Panel de administración en terminal, pensado para ejecutarse dentro de una
+sesión SSH ya autenticada (no abre puertos ni expone servicios).
+
+- Binario: `cmd/dashboard` (TUI con `tview`, ratón activo).
+- Acceso: un único usuario (`DASHBOARD_USER` + `DASHBOARD_PASSWORD_HASH`).
+- Secciones: Inicio, Tareas, Clientes, Mensajes, Configuración (`.env`) y Logs.
+- Persistencia: MariaDB si hay `DATABASE_DSN`; si no, memoria (demo).
+
+```bash
+# 1) Genera el hash de la contraseña y cópialo al .env
+go run ./cmd/dashboard -hash
+
+# 2) Ejecuta el panel (dentro de la sesión SSH)
+go run ./cmd/dashboard
+# o compilado:
+go build -o dashboard ./cmd/dashboard && ./dashboard
+```
+Si no hay `DATABASE_DSN`, el DSN se construye desde `MARIADB_*` del `.env`
+(host `127.0.0.1`, puerto `3307` por defecto; ajusta con `-db-host`/`-db-port`).
+
 ## Documentación
 - [docs/01-INITIAL](docs/01-INITIAL) — especificación, plan y decisiones.
 - [docs/02-CONECTIONS/GMAIL-PUSH.md](docs/02-CONECTIONS/GMAIL-PUSH.md) — Gmail push (Pub/Sub).
