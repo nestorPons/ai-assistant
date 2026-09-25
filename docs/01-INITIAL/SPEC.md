@@ -206,6 +206,10 @@ Si Jev devuelve un error HTTP, `code` distinto de cero, timeout o una respuesta 
 
 Cuando Jev devuelve `extract`, el motor enviará el mensaje al extractor de frontera utilizando **Structured Outputs (JSON Schema)** para forzar una respuesta en formato JSON estricto. La descripción resume la tarea; `specifications` conserva sus requisitos operativos.
 
+Una petición de trabajo puede llegar incompleta: es habitual que no indique fecha límite, horas estimadas, prioridad ni requisitos. La ausencia de estos parámetros **no** convierte el mensaje en descarte ni impide crear la tarea. Lo que toda petición de trabajo siempre aporta es un **tema** (`subject`): el objeto sobre el que se trabaja (proyecto, web, cliente, sistema, documento, servicio, etc.). `subject` es obligatorio cuando `is_task = true` y debe ser concreto y breve. Los parámetros que no aparezcan en el mensaje se dejan a `null` (o ausentes) y nunca se inventan.
+
+Ejemplo: «Arreglame lo que no funciona en nestorpons.com lo antes posible» → `subject = "nestorpons.com"`, `due_date = null`, `estimated_hours = null`, `priority = "high"` (por la urgencia), `specifications` vacío.
+
 ```json
 {
   "is_task": true,
@@ -213,8 +217,10 @@ Cuando Jev devuelve `extract`, el motor enviará el mensaje al extractor de fron
   "task": {
     "title": "Título resumido y conciso de la tarea",
     "description": "Explicación clara del trabajo solicitado",
+    "subject": "Tema del trabajo (proyecto, web, cliente, sistema)",
     "priority": "low | medium | high",
     "estimated_hours": 2,
+    "due_date": "2026-10-01 | null",
     "specifications": {
       "requirements": ["Requisito funcional identificado"],
       "constraints": ["Restricción explícita"],
@@ -227,15 +233,18 @@ Cuando Jev devuelve `extract`, el motor enviará el mensaje al extractor de fron
 }
 ```
 
+Campos obligatorios de `task`: `title`, `description`, `subject` y `priority`. El resto (`estimated_hours`, `due_date`, `specifications`) es opcional. `due_date` usa formato ISO `YYYY-MM-DD` y vale `null` cuando el mensaje no fija fecha.
+
 ### 4.5. Reglas del Prompt (System Rules)
 
 1.  **Análisis fiel:** Jev y el LLM extractor deben basarse en el contenido delimitado de `clean_prompt`, que conserva la intención y estructura del mensaje original sin sus datos personales.
 2.  **Acciones de base de datos:** Si el mensaje solicita guardar, editar o eliminar información existente, Jev debe devolver `"decision": "db_action"` con la operación, entidad, identificador y campos que puedan determinarse con seguridad.
-3.  **Extracción:** Si contiene una instrucción o petición explícita o implícita de trabajo, Jev debe devolver `"decision": "extract"`. El extractor de frontera marcará `"is_task": true` y rellenará el objeto `task`, incluyendo `specifications` cuando existan requisitos o condiciones identificables.
+3.  **Extracción:** Si contiene una instrucción o petición explícita o implícita de trabajo, Jev debe devolver `"decision": "extract"`. El extractor de frontera marcará `"is_task": true` y rellenará el objeto `task`. Es obligatorio identificar el `subject` (tema del trabajo); `specifications` y los demás parámetros se incluyen solo cuando existan requisitos o condiciones identificables.
 4.  **Filtro de relevancia:** Mensajes de cortesía, confirmaciones breves ("ok", "visto", "gracias") o charlas informales deben marcarse como `"decision": "discard"`; si pasan al extractor, este debe devolver `"is_task": false`.
 5.  **Nivel de prioridad:** El extractor determinará la prioridad según expresiones de urgencia conservadas en `clean_prompt` (por ejemplo, "urgente", "para hoy", "cuando puedas").
 6.  **Ambigüedad:** Si Jev no puede distinguir de forma fiable entre acción, extracción o descarte, debe devolver una confianza baja y el sistema debe retener el mensaje para revisión, sin ejecutar cambios destructivos.
-7.  **Privacidad:** Jev y el LLM extractor solo recibirán contenido ofuscado. No deben intentar reconstruir, solicitar ni generar datos personales reales que no sean necesarios para la tarea.
+7.  **Tema y parámetros opcionales:** Toda petición de trabajo tiene un `subject`, aunque no indique fecha ni ningún otro parámetro. La falta de `due_date`, `estimated_hours`, prioridad o `specifications` no es motivo para marcar `is_task=false`; el extractor rellena lo que pueda y deja el resto a `null`, sin inventar datos.
+8.  **Privacidad:** Jev y el LLM extractor solo recibirán contenido ofuscado. No deben intentar reconstruir, solicitar ni generar datos personales reales que no sean necesarios para la tarea.
 
 ---
 
@@ -271,8 +280,10 @@ Guarda las tareas procesadas y validadas por el sistema.
 *   `message_id` (FOREIGN KEY -> `raw_messages.id`)
 *   `title` (VARCHAR)
 *   `description` (TEXT)
+*   `subject` (VARCHAR) - Tema del trabajo (proyecto, web, cliente, sistema). Obligatorio: toda petición de trabajo lo aporta.
 *   `priority` (ENUM: 'low', 'medium', 'high')
 *   `estimated_hours` (FLOAT / DECIMAL NULL)
+*   `due_date` (DATE NULL) - Fecha límite si el mensaje la indica; NULL en caso contrario.
 *   `specifications` (JSON NULL) - Requisitos, restricciones, entregables, criterios de aceptación, dependencias y preguntas abiertas extraídas del mensaje.
 *   `status` (ENUM: 'pending', 'in_progress', 'completed', 'discarded' DEFAULT 'pending')
 *   `ai_confidence` (FLOAT)

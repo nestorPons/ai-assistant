@@ -205,8 +205,10 @@ func (s *MemoryStore) UpdateTask(_ context.Context, task *domain.Task) error {
 	}
 	t.Title = task.Title
 	t.Description = task.Description
+	t.Subject = task.Subject
 	t.Priority = task.Priority
 	t.EstimatedHours = task.EstimatedHours
+	t.DueDate = task.DueDate
 	t.Status = task.Status
 	t.UpdatedAt = time.Now().UTC()
 	return nil

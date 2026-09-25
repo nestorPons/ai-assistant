@@ -4,6 +4,7 @@ package extractor
 
 import (
 	"context"
+	"time"
 
 	"github.com/nestorPons/ai-assistant/internal/domain"
 )
@@ -20,8 +21,10 @@ type ExtractionResult struct {
 	Confidence     float64
 	Title          string
 	Description    string
+	Subject        string
 	Priority       domain.Priority
 	EstimatedHours *float64
+	DueDate        *time.Time
 	Specifications *domain.Specifications
 }
 
@@ -42,12 +45,20 @@ const extractionJSONSchema = `{
     "task": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["title", "description", "priority"],
+      "required": ["title", "description", "subject", "priority"],
       "properties": {
         "title": {"type": "string"},
         "description": {"type": "string"},
+        "subject": {
+          "type": "string",
+          "description": "Tema del trabajo: proyecto, web, cliente, sistema o asunto sobre el que se trabaja. Obligatorio si is_task=true."
+        },
         "priority": {"type": "string", "enum": ["low", "medium", "high"]},
-        "estimated_hours": {"type": "number"},
+        "estimated_hours": {"type": ["number", "null"]},
+        "due_date": {
+          "type": ["string", "null"],
+          "description": "Fecha límite en formato YYYY-MM-DD, o null si el mensaje no la indica."
+        },
         "specifications": {
           "type": "object",
           "additionalProperties": false,

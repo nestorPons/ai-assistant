@@ -156,8 +156,10 @@ type Task struct {
 	MessageID      string          `json:"message_id"`
 	Title          string          `json:"title"`
 	Description    string          `json:"description"`
+	Subject        string          `json:"subject"`
 	Priority       Priority        `json:"priority"`
 	EstimatedHours *float64        `json:"estimated_hours,omitempty"`
+	DueDate        *time.Time      `json:"due_date,omitempty"`
 	Specifications *Specifications `json:"specifications,omitempty"`
 	Status         TaskStatus      `json:"status"`
 	AIConfidence   float64         `json:"ai_confidence"`

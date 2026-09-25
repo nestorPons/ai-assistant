@@ -80,6 +80,9 @@ func TestPipelineCreatesTask(t *testing.T) {
 	if tasks[0].Status != domain.TaskStatusPending {
 		t.Errorf("estado = %v", tasks[0].Status)
 	}
+	if tasks[0].Subject == "" {
+		t.Error("la tarea debe tener un tema (subject)")
+	}
 }
 
 func TestPipelineExcludesUnauthorized(t *testing.T) {

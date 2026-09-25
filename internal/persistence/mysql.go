@@ -19,6 +19,9 @@ var initSchema string
 //go:embed migrations/002_sync_state.sql
 var syncStateSchema string
 
+//go:embed migrations/003_task_subject.sql
+var taskSubjectSchema string
+
 // MySQLStore implementa Store sobre MariaDB.
 type MySQLStore struct {
 	db *sql.DB
@@ -57,7 +60,7 @@ func (s *MySQLStore) Close() error { return s.db.Close() }
 
 // migrate aplica el esquema inicial de forma idempotente.
 func (s *MySQLStore) migrate(ctx context.Context) error {
-	for _, stmt := range []string{initSchema, syncStateSchema} {
+	for _, stmt := range []string{initSchema, syncStateSchema, taskSubjectSchema} {
 		if _, err := s.db.ExecContext(ctx, stmt); err != nil {
 			return err
 		}
@@ -195,15 +198,15 @@ func (s *MySQLStore) CreateTask(ctx context.Context, task *domain.Task) error {
 		return err
 	}
 	_, err = s.db.ExecContext(ctx,
-		`INSERT INTO tasks (id, client_id, message_id, title, description, priority, estimated_hours, specifications, status, ai_confidence, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		task.ID, task.ClientID, task.MessageID, task.Title, task.Description, string(task.Priority),
-		task.EstimatedHours, spec, string(task.Status), task.AIConfidence, task.CreatedAt, task.UpdatedAt)
+		`INSERT INTO tasks (id, client_id, message_id, title, description, subject, priority, estimated_hours, due_date, specifications, status, ai_confidence, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		task.ID, task.ClientID, task.MessageID, task.Title, task.Description, task.Subject, string(task.Priority),
+		task.EstimatedHours, nullTime(task.DueDate), spec, string(task.Status), task.AIConfidence, task.CreatedAt, task.UpdatedAt)
 	return mapErr(err)
 }
 
 func (s *MySQLStore) GetTask(ctx context.Context, id string) (*domain.Task, error) {
-	const q = `SELECT id, client_id, message_id, title, description, priority, estimated_hours, specifications, status, ai_confidence, created_at, updated_at
+	const q = `SELECT id, client_id, message_id, title, description, subject, priority, estimated_hours, due_date, specifications, status, ai_confidence, created_at, updated_at
 	           FROM tasks WHERE id = ? LIMIT 1`
 	t, err := scanTask(s.db.QueryRowContext(ctx, q, id))
 	if errors.Is(err, sql.ErrNoRows) {
@@ -216,7 +219,7 @@ func (s *MySQLStore) GetTask(ctx context.Context, id string) (*domain.Task, erro
 }
 
 func (s *MySQLStore) ListTasks(ctx context.Context, status *domain.TaskStatus) ([]domain.Task, error) {
-	q := `SELECT id, client_id, message_id, title, description, priority, estimated_hours, specifications, status, ai_confidence, created_at, updated_at FROM tasks`
+	q := `SELECT id, client_id, message_id, title, description, subject, priority, estimated_hours, due_date, specifications, status, ai_confidence, created_at, updated_at FROM tasks`
 	args := []any{}
 	if status != nil {
 		q += ` WHERE status = ?`
@@ -251,8 +254,8 @@ func (s *MySQLStore) UpdateTaskStatus(ctx context.Context, id string, status dom
 func (s *MySQLStore) UpdateTask(ctx context.Context, task *domain.Task) error {
 	task.UpdatedAt = time.Now().UTC()
 	res, err := s.db.ExecContext(ctx,
-		`UPDATE tasks SET title = ?, description = ?, priority = ?, estimated_hours = ?, status = ?, updated_at = ? WHERE id = ?`,
-		task.Title, task.Description, string(task.Priority), task.EstimatedHours, string(task.Status), task.UpdatedAt, task.ID)
+		`UPDATE tasks SET title = ?, description = ?, subject = ?, priority = ?, estimated_hours = ?, due_date = ?, status = ?, updated_at = ? WHERE id = ?`,
+		task.Title, task.Description, task.Subject, string(task.Priority), task.EstimatedHours, nullTime(task.DueDate), string(task.Status), task.UpdatedAt, task.ID)
 	if err != nil {
 		return err
 	}
@@ -297,10 +300,15 @@ type scanner interface {
 func scanTask(row scanner) (*domain.Task, error) {
 	t := &domain.Task{}
 	var spec []byte
-	err := row.Scan(&t.ID, &t.ClientID, &t.MessageID, &t.Title, &t.Description, &t.Priority,
-		&t.EstimatedHours, &spec, &t.Status, &t.AIConfidence, &t.CreatedAt, &t.UpdatedAt)
+	var due sql.NullTime
+	err := row.Scan(&t.ID, &t.ClientID, &t.MessageID, &t.Title, &t.Description, &t.Subject, &t.Priority,
+		&t.EstimatedHours, &due, &spec, &t.Status, &t.AIConfidence, &t.CreatedAt, &t.UpdatedAt)
 	if err != nil {
 		return nil, err
+	}
+	if due.Valid {
+		d := due.Time.UTC()
+		t.DueDate = &d
 	}
 	if len(spec) > 0 {
 		s, err := domain.UnmarshalSpecifications(spec)
@@ -310,6 +318,14 @@ func scanTask(row scanner) (*domain.Task, error) {
 		t.Specifications = s
 	}
 	return t, nil
+}
+
+// nullTime convierte una fecha opcional en un valor NULL para SQL.
+func nullTime(t *time.Time) any {
+	if t == nil {
+		return nil
+	}
+	return t.UTC()
 }
 
 func ensureAffected(res sql.Result) error {

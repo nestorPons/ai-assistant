@@ -8,6 +8,8 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/nestorPons/ai-assistant/internal/domain"
 	"github.com/nestorPons/ai-assistant/internal/persistence"
@@ -199,8 +201,10 @@ func (s *Server) updateTask(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Title       *string `json:"title"`
 		Description *string `json:"description"`
+		Subject     *string `json:"subject"`
 		Priority    *string `json:"priority"`
 		Status      *string `json:"status"`
+		DueDate     *string `json:"due_date"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		s.error(w, http.StatusBadRequest, err)
@@ -212,11 +216,22 @@ func (s *Server) updateTask(w http.ResponseWriter, r *http.Request) {
 	if req.Description != nil {
 		task.Description = *req.Description
 	}
+	if req.Subject != nil {
+		task.Subject = *req.Subject
+	}
 	if req.Priority != nil {
 		task.Priority = domain.Priority(*req.Priority)
 	}
 	if req.Status != nil {
 		task.Status = domain.TaskStatus(*req.Status)
+	}
+	if req.DueDate != nil {
+		due, err := parseDueDate(*req.DueDate)
+		if err != nil {
+			s.error(w, http.StatusBadRequest, err)
+			return
+		}
+		task.DueDate = due
 	}
 	if err := s.store.UpdateTask(r.Context(), task); err != nil {
 		s.error(w, http.StatusInternalServerError, err)
@@ -243,4 +258,18 @@ func (s *Server) write(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(v)
+}
+
+// parseDueDate interpreta una fecha YYYY-MM-DD; cadena vacía limpia el valor.
+func parseDueDate(raw string) (*time.Time, error) {
+	s := strings.TrimSpace(raw)
+	if s == "" {
+		return nil, nil
+	}
+	t, err := time.Parse("2006-01-02", s)
+	if err != nil {
+		return nil, errors.New("due_date inválida, se espera YYYY-MM-DD")
+	}
+	utc := t.UTC()
+	return &utc, nil
 }

@@ -6,14 +6,14 @@ Estado: MVP funcional y testeado. `SPEC.md`/`PLAN.md`/`DECISIONS.md` en `docs/01
 
 ### `core-engine`
 - **Config** (`internal/config`): variables de entorno, sin secretos en logs.
-- **Dominio** (`internal/domain`): `IncomingMessage`, `Client`, `RawMessage`, `Task`, `Specifications`.
+- **Dominio** (`internal/domain`): `IncomingMessage`, `Client`, `RawMessage`, `Task` (con `subject` y `due_date`), `Specifications`.
 - **Persistencia** (`internal/persistence`): migraciones SQL (`clients`, `raw_messages`, `tasks`, `sync_state`), `MySQLStore` y `MemoryStore` (pruebas/demo). Índices de unicidad `clients(source,identifier)` y `raw_messages(source,external_id)`.
 - **Ingestión** (`internal/ingestion`): interfaz `Source`; fuentes `simulated`, `gmail` (polling API REST e incremental por History API + Pub/Sub pull) y `pubsub` (worker pull).
 - **Normalizador** (`internal/normalizer`): valida canal, recorta y normaliza identificador.
 - **Anonimizador cliente** (`internal/anonymizer`): `Client` HTTP hacia `llm-anonymizer`.
 - **Contexto** (`internal/context`): `Builder` genera sobre JSON con mensaje ofuscado delimitado.
 - **Clasificador** (`internal/classifier`): interfaz `Classifier`; `jev.Provider` (Jev), `remote.Classifier` (LLM con salida estructurada) y `MockRuleClassifier`; `Chain` de fallback; `RouteDecision` (vocabulario compartido).
-- **Extractor** (`internal/extractor`): interfaz `Extractor`; `LLMExtractor` (Structured Outputs vía `LLMProvider`) y `MockExtractor`.
+- **Extractor** (`internal/extractor`): interfaz `Extractor`; `LLMExtractor` (Structured Outputs vía `LLMProvider`) y `MockExtractor`. Extrae `subject` (tema, obligatorio) y `due_date` (opcional, NULL si no se indica); la falta de fecha u otros parámetros no descarta la tarea.
 - **LLM** (`internal/llm`): `LLMProvider`, `CompletionRequest/Response`, errores normalizados; adaptador `openai.Provider` (OpenAI-compatible). `internal/oauth` provee el `TokenSource` de Google.
 - **Pipeline** (`internal/pipeline`): orden obligatorio (autorizar → idempotencia → guardar → pre-filtro → ofuscar → contexto → clasificador → ruta).
 - **Worker** (`internal/worker`): goroutines con límite de concurrencia y reintentos exponenciales.

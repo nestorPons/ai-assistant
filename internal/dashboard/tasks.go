@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/rivo/tview"
 
@@ -74,21 +75,27 @@ func (v *tasksView) Refresh() {
 	v.items = tasks
 
 	v.table.Clear()
-	for c, h := range []string{"Título", "Estado", "Prioridad", "Confianza", "Horas", "Creado"} {
+	for c, h := range []string{"Tema", "Título", "Estado", "Prioridad", "Confianza", "Horas", "Fecha límite", "Creado"} {
 		v.table.SetCell(0, c, headerCell(h))
 	}
 	for i, t := range tasks {
 		row := i + 1
-		v.table.SetCell(row, 0, textCell(t.Title))
-		v.table.SetCell(row, 1, tview.NewTableCell(string(t.Status)).SetTextColor(statusColor(t.Status)).SetExpansion(1))
-		v.table.SetCell(row, 2, tview.NewTableCell(string(t.Priority)).SetTextColor(priorityColor(t.Priority)).SetExpansion(1))
-		v.table.SetCell(row, 3, textCell(fmt.Sprintf("%.0f%%", t.AIConfidence*100)))
+		v.table.SetCell(row, 0, textCell(t.Subject))
+		v.table.SetCell(row, 1, textCell(t.Title))
+		v.table.SetCell(row, 2, tview.NewTableCell(string(t.Status)).SetTextColor(statusColor(t.Status)).SetExpansion(1))
+		v.table.SetCell(row, 3, tview.NewTableCell(string(t.Priority)).SetTextColor(priorityColor(t.Priority)).SetExpansion(1))
+		v.table.SetCell(row, 4, textCell(fmt.Sprintf("%.0f%%", t.AIConfidence*100)))
 		hours := "-"
 		if t.EstimatedHours != nil {
 			hours = fmt.Sprintf("%.1f", *t.EstimatedHours)
 		}
-		v.table.SetCell(row, 4, textCell(hours))
-		v.table.SetCell(row, 5, textCell(t.CreatedAt.Format("2006-01-02 15:04")))
+		v.table.SetCell(row, 5, textCell(hours))
+		due := "-"
+		if t.DueDate != nil {
+			due = t.DueDate.Format("2006-01-02")
+		}
+		v.table.SetCell(row, 6, textCell(due))
+		v.table.SetCell(row, 7, textCell(t.CreatedAt.Format("2006-01-02 15:04")))
 	}
 	if len(tasks) > 0 {
 		v.table.Select(1, 0)
@@ -109,24 +116,29 @@ func (v *tasksView) editSelected() {
 	if !ok {
 		return
 	}
-	var title, description, hoursStr string
+	var title, description, subject, hoursStr, dueStr string
 	priority, status := string(t.Priority), string(t.Status)
+	if t.EstimatedHours != nil {
+		hoursStr = strconv.FormatFloat(*t.EstimatedHours, 'f', -1, 64)
+	}
+	if t.DueDate != nil {
+		dueStr = t.DueDate.Format("2006-01-02")
+	}
 
 	form := tview.NewForm().
 		AddTextView("", "", 0, 1, true, false).
+		AddInputField("Tema", t.Subject, 44, nil, func(s string) { subject = s }).
 		AddInputField("Título", t.Title, 44, nil, func(s string) { title = s }).
 		AddTextArea("Descripción", t.Description, 44, 5, 0, func(s string) { description = s }).
 		AddDropDown("Prioridad", []string{"low", "medium", "high"}, indexOfString([]string{"low", "medium", "high"}, string(t.Priority)), func(o string, _ int) { priority = o }).
 		AddDropDown("Estado", statusStrings(), indexOfString(statusStrings(), string(t.Status)), func(o string, _ int) { status = o }).
-		AddInputField("Horas est.", hoursStr, 10, nil, func(s string) { hoursStr = s })
-	title, description = t.Title, t.Description
-	if t.EstimatedHours != nil {
-		hoursStr = strconv.FormatFloat(*t.EstimatedHours, 'f', -1, 64)
-	}
+		AddInputField("Horas est.", hoursStr, 10, nil, func(s string) { hoursStr = s }).
+		AddInputField("Fecha límite", dueStr, 12, nil, func(s string) { dueStr = s })
+	title, description, subject = t.Title, t.Description, t.Subject
 	statusText := form.GetFormItem(0).(*tview.TextView)
 
 	form.AddButton("Guardar", func() {
-		t.Title, t.Description = title, description
+		t.Title, t.Description, t.Subject = title, description, subject
 		t.Priority = domain.Priority(priority)
 		t.Status = domain.TaskStatus(status)
 		if strings.TrimSpace(hoursStr) != "" {
@@ -138,6 +150,17 @@ func (v *tasksView) editSelected() {
 			t.EstimatedHours = &h
 		} else {
 			t.EstimatedHours = nil
+		}
+		if strings.TrimSpace(dueStr) != "" {
+			d, err := time.Parse("2006-01-02", strings.TrimSpace(dueStr))
+			if err != nil {
+				statusText.SetText("[red]Fecha inválida (YYYY-MM-DD)[-]")
+				return
+			}
+			utc := d.UTC()
+			t.DueDate = &utc
+		} else {
+			t.DueDate = nil
 		}
 		if !t.Priority.Valid() || !t.Status.Valid() {
 			statusText.SetText("[red]Prioridad o estado inválidos[-]")
@@ -154,7 +177,7 @@ func (v *tasksView) editSelected() {
 	form.AddButton("Cancelar", v.d.closeModal)
 	form.SetBorder(true).SetTitle(" Editar tarea ").SetTitleAlign(tview.AlignCenter)
 
-	v.d.openModal(form, 66, 22)
+	v.d.openModal(form, 66, 28)
 }
 
 func (v *tasksView) changeStatus() {

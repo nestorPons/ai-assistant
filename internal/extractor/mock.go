@@ -33,18 +33,35 @@ func (m *MockExtractor) Extract(_ context.Context, input ExtractionInput) (Extra
 		Requirements: []string{"Requisito extraído del mensaje"},
 	}
 
+	title := firstSentence(input.CleanPrompt)
 	return ExtractionResult{
 		IsTask:         true,
 		Confidence:     0.92,
-		Title:          firstSentence(input.CleanPrompt),
+		Title:          title,
 		Description:    strings.TrimSpace(input.CleanPrompt),
+		Subject:        guessSubject(input.CleanPrompt, title),
 		Priority:       priority,
 		Specifications: specs,
 	}, nil
 }
 
+// guessSubject aproxima el tema del trabajo (proyecto, web, dominio…) a partir
+// del primer token que parece un dominio o URL; si no lo encuentra usa el título.
+func guessSubject(s, fallback string) string {
+	for _, field := range strings.Fields(s) {
+		f := strings.Trim(field, ".,;:!?¡¿()[]{}\"'")
+		if strings.HasPrefix(f, "http://") || strings.HasPrefix(f, "https://") {
+			return strings.TrimPrefix(strings.TrimPrefix(f, "https://"), "http://")
+		}
+		if strings.Contains(f, ".") && !strings.HasSuffix(f, ".") {
+			return f
+		}
+	}
+	return fallback
+}
+
 func looksLikeTask(s string) bool {
-	keywords := []string{"necesito", "prepara", "haz", "realiza", "encargo", "tarea", "informe", "revisa", "preparar", "hacer"}
+	keywords := []string{"necesito", "prepara", "haz", "realiza", "encargo", "tarea", "informe", "revisa", "preparar", "hacer", "arregla", "soluciona", "corrige", "fix"}
 	for _, k := range keywords {
 		if strings.Contains(s, k) {
 			return true

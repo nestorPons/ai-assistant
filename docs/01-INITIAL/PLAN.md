@@ -161,7 +161,9 @@ type Extractor interface {
 
 - Implementar el adaptador del proveedor elegido para el extractor y enviarle únicamente los mensajes autorizados y clasificados como `extract`.
 - Validar la respuesta contra JSON Schema.
-- Extraer título, descripción, prioridad, horas estimadas y las especificaciones de la tarea.
+- Extraer título, descripción, **tema** (`subject`), prioridad, horas estimadas, fecha límite (`due_date`) y las especificaciones de la tarea.
+- Tratar `subject` como obligatorio en toda petición de trabajo, aunque falten fecha, horas u otros parámetros; no descartar ni inventar por ausencia de estos.
+- Persistir `tasks.subject` y `tasks.due_date` (NULL si no se indican).
 - Persistir `tasks.specifications` como JSON con requisitos, restricciones, entregables, criterios de aceptación, dependencias y preguntas abiertas.
 - Crear la tarea en estado `pending`.
 - Guardar la confianza del modelo.
@@ -262,6 +264,7 @@ El MVP se considerará terminado cuando:
 - Jev devuelva una clasificación validada.
 - Los mensajes descartables no creen tareas.
 - Los mensajes de trabajo generen una tarea con JSON válido.
+- Toda tarea tenga un `subject` (tema) aunque el mensaje no indique fecha ni otros parámetros; `due_date` quede NULL cuando no se mencione.
 - Las especificaciones extraídas se guarden en `tasks.specifications` sin perder requisitos, restricciones ni criterios de aceptación.
 - Las acciones de guardado o edición se ejecuten mediante repositorios y transacciones.
 - Los mensajes duplicados no se procesen dos veces.

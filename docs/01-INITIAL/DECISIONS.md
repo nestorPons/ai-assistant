@@ -32,6 +32,11 @@ TTL-mapping: 5m
 tabla-contactos-y-autorizacion: clients
 campo-especificaciones-tarea: tasks.specifications
 tipo-especificaciones-tarea: JSON
+campo-tema-tarea: tasks.subject
+tema-tarea-obligatorio: true
+campo-fecha-limite-tarea: tasks.due_date
+fecha-limite-tarea-formato: YYYY-MM-DD
+fecha-limite-tarea-opcional: true
 interfaz-proveedor-LLM: LLMProvider
 proveedor-extractor-MVP: OpenAI
 modelo-extractor-MVP: gpt-4o-mini
@@ -62,3 +67,4 @@ Las modificaciones a estos atributos deben hacerse únicamente en este documento
 - `CLASSIFIER_MODE` reemplaza al orquestador único: `chain` (Jev → LLM → reglas → revisión), `jev` o `llm`.
 - Jev deshabilitado temporalmente (429 y clasificaciones erróneas); se usa `llm` con `gpt-4o-mini`. Detalle en `../03-CLASSIFIER.md`.
 - La especificación original (`SPEC.md`) describe Jev como orquestador; el clasificador LLM conserva el mismo contrato de decisión vía `classifier.RouteDecision`.
+- Toda petición de trabajo define un `subject` (tema) obligatorio aunque el mensaje no aporte fecha ni otros parámetros; `due_date` es opcional y NULL si no se indica.

@@ -66,7 +66,7 @@ func TestMemoryStoreTasks(t *testing.T) {
 	ctx := context.Background()
 	s := NewMemoryStore()
 
-	task := &domain.Task{ClientID: "c1", MessageID: "m1", Title: "t", Description: "d", Priority: domain.PriorityMedium, Status: domain.TaskStatusPending}
+	task := &domain.Task{ClientID: "c1", MessageID: "m1", Title: "t", Description: "d", Subject: "nestorpons.com", Priority: domain.PriorityMedium, Status: domain.TaskStatusPending}
 	if err := s.CreateTask(ctx, task); err != nil {
 		t.Fatal(err)
 	}
@@ -77,6 +77,12 @@ func TestMemoryStoreTasks(t *testing.T) {
 	}
 	if got.Title != "t" {
 		t.Error("título incorrecto")
+	}
+	if got.Subject != "nestorpons.com" {
+		t.Errorf("tema = %q", got.Subject)
+	}
+	if got.DueDate != nil {
+		t.Errorf("fecha límite debería ser nil, fue %v", got.DueDate)
 	}
 
 	pending := domain.TaskStatusPending
