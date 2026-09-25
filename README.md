@@ -58,3 +58,5 @@ Si no hay `DATABASE_DSN`, el DSN se construye desde `MARIADB_*` del `.env`
 - [docs/01-INITIAL](docs/01-INITIAL) — especificación, plan y decisiones.
 - [docs/02-CONECTIONS/GMAIL-PUSH.md](docs/02-CONECTIONS/GMAIL-PUSH.md) — Gmail push (Pub/Sub).
 - [docs/03-CLASSIFIER.md](docs/03-CLASSIFIER.md) — clasificador y cadena de fallback.
+- [docs/04-DASHBOARD.md](docs/04-DASHBOARD.md) — panel de administración TUI por SSH.
+- [docs/05-WEB-DASHBOARD](docs/05-WEB-DASHBOARD) — panel web Laravel + Filament.

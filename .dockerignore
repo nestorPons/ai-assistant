@@ -1,0 +1,15 @@
+.git
+.gitignore
+.vscode
+
+# Laravel (web-dashboard): no copiar dependencias ni secretos del host
+web-dashboard/vendor
+web-dashboard/node_modules
+web-dashboard/.env
+web-dashboard/database/*.sqlite
+web-dashboard/storage/framework/cache/*
+web-dashboard/storage/framework/sessions/*
+web-dashboard/storage/framework/views/*
+web-dashboard/storage/logs/*
+web-dashboard/bootstrap/cache/*
+web-dashboard/public/storage
