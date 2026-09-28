@@ -2,8 +2,9 @@
 
 namespace App\Filament\Resources\Tasks\Tables;
 
+use App\Filament\Resources\Tasks\Pages\EditTask;
+use App\Models\Kos\Task;
 use Filament\Actions\EditAction;
-use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -33,10 +34,6 @@ class TasksTable
                 TextColumn::make('ai_confidence')
                     ->label('Confianza')
                     ->formatStateUsing(fn ($state): string => number_format(((float) $state) * 100, 0).'%'),
-                TextColumn::make('estimated_hours')
-                    ->label('Horas')
-                    ->numeric()
-                    ->placeholder('-'),
                 TextColumn::make('due_date')
                     ->label('Fecha límite')
                     ->date('Y-m-d')
@@ -70,10 +67,11 @@ class TasksTable
                         'high' => 'Alta',
                     ]),
             ])
+            ->recordUrl(fn (Task $record): string => EditTask::getUrl(['record' => $record]))
             ->recordActions([
-                ViewAction::make(),
                 EditAction::make(),
             ])
+            ->poll('5s')
             ->defaultSort('created_at', 'desc');
     }
 }

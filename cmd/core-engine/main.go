@@ -25,6 +25,7 @@ import (
 	"github.com/nestorPons/ai-assistant/internal/ingestion/gmail"
 	"github.com/nestorPons/ai-assistant/internal/ingestion/pubsub"
 	"github.com/nestorPons/ai-assistant/internal/ingestion/simulated"
+	"github.com/nestorPons/ai-assistant/internal/ingestion/telegram"
 	"github.com/nestorPons/ai-assistant/internal/llm/openai"
 	"github.com/nestorPons/ai-assistant/internal/oauth"
 	"github.com/nestorPons/ai-assistant/internal/persistence"
@@ -186,6 +187,17 @@ func buildClassifier(cfg config.Config, logger *slog.Logger) classifier.Classifi
 func buildSources(cfg config.Config, store persistence.Store) ([]ingestion.Source, func(context.Context, chan<- domain.IncomingMessage) error) {
 	var sources []ingestion.Source
 	var runner func(context.Context, chan<- domain.IncomingMessage) error
+
+	if cfg.TelegramBotToken != "" {
+		// Telegram es independiente de Gmail y puede convivir con él. La lista
+		// blanca se resuelve en el pipeline (tabla clients del dashboard).
+		sources = append(sources, telegram.New(telegram.Config{
+			Token:  cfg.TelegramBotToken,
+			Poll:   cfg.TelegramPollTimeout,
+			Cursor: store,
+			Logger: slog.Default(),
+		}))
+	}
 
 	if cfg.JevAPIKey != "" || cfg.OpenAIAPIKey != "" {
 		// Con credenciales reales se usa Gmail como canal principal.

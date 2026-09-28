@@ -26,7 +26,6 @@ class TaskResourceTest extends TestCase
                 'description' => $task->description,
                 'priority' => 'high',
                 'status' => 'completed',
-                'estimated_hours' => 2,
                 'due_date' => '2026-10-01',
             ])
             ->call('save')

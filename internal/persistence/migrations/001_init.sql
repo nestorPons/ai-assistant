@@ -36,7 +36,6 @@ CREATE TABLE IF NOT EXISTS tasks (
     description      TEXT         NOT NULL,
     subject          VARCHAR(255) NOT NULL DEFAULT '',
     priority         ENUM('low','medium','high') NOT NULL DEFAULT 'medium',
-    estimated_hours  DECIMAL(6,2) NULL,
     due_date         DATE         NULL,
     specifications   JSON         NULL,
     status           ENUM('pending','in_progress','completed','discarded','needs_review') NOT NULL DEFAULT 'pending',

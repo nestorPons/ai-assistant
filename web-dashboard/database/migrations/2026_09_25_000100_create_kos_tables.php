@@ -50,7 +50,6 @@ return new class extends Migration
                 $table->text('description');
                 $table->string('subject')->default('');
                 $table->enum('priority', ['low', 'medium', 'high'])->default('medium');
-                $table->decimal('estimated_hours', 6, 2)->nullable();
                 $table->date('due_date')->nullable();
                 $table->json('specifications')->nullable();
                 $table->enum('status', ['pending', 'in_progress', 'completed', 'discarded', 'needs_review'])->default('pending');

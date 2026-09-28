@@ -16,6 +16,20 @@ Backend desacoplado en Go: recibe mensajes de Gmail/WhatsApp/Telegram, filtra us
 - Estado actual: Jev deshabilitado por fallos/saturación; `CLASSIFIER_MODE=llm` con `gpt-4o-mini`.
 - Detalle en [docs/03-CLASSIFIER.md](docs/03-CLASSIFIER.md).
 
+## Canales
+- Gmail: `GMAIL_*` (OAuth) y modo poll/pull. Ver [docs/02-CONECTIONS/GMAIL-PUSH.md](docs/02-CONECTIONS/GMAIL-PUSH.md).
+- Telegram: Bot API en long polling.
+  - `TELEGRAM_BOT_TOKEN`: token de @BotFather (vacío deshabilita el canal).
+  - `TELEGRAM_POLL_TIMEOUT`: timeout de `getUpdates` (por defecto `25s`).
+  - La lista blanca de usuarios se gestiona desde el dashboard (clientes con
+    `source=telegram` e `identifier` = ID numérico de Telegram).
+
+## Tareas
+Al crear una tarea, core-engine genera un `spec.md` determinista desde los datos
+extraídos (tema, descripción, prioridad, fecha, horas y specifications) y lo
+guarda en `tasks.spec_md`. Se expone en el JSON de `/tasks` y es editable desde
+el dashboard web (campo `spec.md`).
+
 ## Arranque rápido (demo autocontenida)
 ```bash
 go run ./cmd/core-engine

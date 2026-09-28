@@ -3,9 +3,11 @@
 namespace App\Filament\Resources\Tasks\Schemas;
 
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\MarkdownEditor;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\ToggleButtons;
 use Filament\Schemas\Schema;
 
 class TaskForm
@@ -35,7 +37,7 @@ class TaskForm
                         'high' => 'Alta',
                     ])
                     ->required(),
-                Select::make('status')
+                ToggleButtons::make('status')
                     ->label('Estado')
                     ->options([
                         'pending' => 'Pendiente',
@@ -44,16 +46,23 @@ class TaskForm
                         'completed' => 'Completada',
                         'discarded' => 'Descartada',
                     ])
+                    ->colors([
+                        'pending' => 'warning',
+                        'in_progress' => 'info',
+                        'needs_review' => 'gray',
+                        'completed' => 'success',
+                        'discarded' => 'danger',
+                    ])
+                    ->inline()
                     ->required(),
-                TextInput::make('estimated_hours')
-                    ->label('Horas estimadas')
-                    ->numeric()
-                    ->step('0.1')
-                    ->placeholder('-'),
                 DatePicker::make('due_date')
                     ->label('Fecha límite')
                     ->native(false)
                     ->placeholder('Sin fecha'),
+                MarkdownEditor::make('spec_md')
+                    ->label('spec.md')
+                    ->helperText('Especificación de la tarea generada automáticamente; editable.')
+                    ->columnSpanFull(),
             ]);
     }
 }

@@ -3,7 +3,6 @@ package dashboard
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -75,7 +74,7 @@ func (v *tasksView) Refresh() {
 	v.items = tasks
 
 	v.table.Clear()
-	for c, h := range []string{"Tema", "Título", "Estado", "Prioridad", "Confianza", "Horas", "Fecha límite", "Creado"} {
+	for c, h := range []string{"Tema", "Título", "Estado", "Prioridad", "Confianza", "Fecha límite", "Creado"} {
 		v.table.SetCell(0, c, headerCell(h))
 	}
 	for i, t := range tasks {
@@ -85,17 +84,12 @@ func (v *tasksView) Refresh() {
 		v.table.SetCell(row, 2, tview.NewTableCell(string(t.Status)).SetTextColor(statusColor(t.Status)).SetExpansion(1))
 		v.table.SetCell(row, 3, tview.NewTableCell(string(t.Priority)).SetTextColor(priorityColor(t.Priority)).SetExpansion(1))
 		v.table.SetCell(row, 4, textCell(fmt.Sprintf("%.0f%%", t.AIConfidence*100)))
-		hours := "-"
-		if t.EstimatedHours != nil {
-			hours = fmt.Sprintf("%.1f", *t.EstimatedHours)
-		}
-		v.table.SetCell(row, 5, textCell(hours))
 		due := "-"
 		if t.DueDate != nil {
 			due = t.DueDate.Format("2006-01-02")
 		}
-		v.table.SetCell(row, 6, textCell(due))
-		v.table.SetCell(row, 7, textCell(t.CreatedAt.Format("2006-01-02 15:04")))
+		v.table.SetCell(row, 5, textCell(due))
+		v.table.SetCell(row, 6, textCell(t.CreatedAt.Format("2006-01-02 15:04")))
 	}
 	if len(tasks) > 0 {
 		v.table.Select(1, 0)
@@ -116,11 +110,8 @@ func (v *tasksView) editSelected() {
 	if !ok {
 		return
 	}
-	var title, description, subject, hoursStr, dueStr string
+	var title, description, subject, dueStr string
 	priority, status := string(t.Priority), string(t.Status)
-	if t.EstimatedHours != nil {
-		hoursStr = strconv.FormatFloat(*t.EstimatedHours, 'f', -1, 64)
-	}
 	if t.DueDate != nil {
 		dueStr = t.DueDate.Format("2006-01-02")
 	}
@@ -132,7 +123,6 @@ func (v *tasksView) editSelected() {
 		AddTextArea("Descripción", t.Description, 44, 5, 0, func(s string) { description = s }).
 		AddDropDown("Prioridad", []string{"low", "medium", "high"}, indexOfString([]string{"low", "medium", "high"}, string(t.Priority)), func(o string, _ int) { priority = o }).
 		AddDropDown("Estado", statusStrings(), indexOfString(statusStrings(), string(t.Status)), func(o string, _ int) { status = o }).
-		AddInputField("Horas est.", hoursStr, 10, nil, func(s string) { hoursStr = s }).
 		AddInputField("Fecha límite", dueStr, 12, nil, func(s string) { dueStr = s })
 	title, description, subject = t.Title, t.Description, t.Subject
 	statusText := form.GetFormItem(0).(*tview.TextView)
@@ -141,16 +131,6 @@ func (v *tasksView) editSelected() {
 		t.Title, t.Description, t.Subject = title, description, subject
 		t.Priority = domain.Priority(priority)
 		t.Status = domain.TaskStatus(status)
-		if strings.TrimSpace(hoursStr) != "" {
-			h, err := strconv.ParseFloat(strings.TrimSpace(hoursStr), 64)
-			if err != nil {
-				statusText.SetText("[red]Horas inválidas[-]")
-				return
-			}
-			t.EstimatedHours = &h
-		} else {
-			t.EstimatedHours = nil
-		}
 		if strings.TrimSpace(dueStr) != "" {
 			d, err := time.Parse("2006-01-02", strings.TrimSpace(dueStr))
 			if err != nil {

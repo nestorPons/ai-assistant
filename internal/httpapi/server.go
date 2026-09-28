@@ -205,6 +205,7 @@ func (s *Server) updateTask(w http.ResponseWriter, r *http.Request) {
 		Priority    *string `json:"priority"`
 		Status      *string `json:"status"`
 		DueDate     *string `json:"due_date"`
+		SpecMD      *string `json:"spec_md"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		s.error(w, http.StatusBadRequest, err)
@@ -224,6 +225,9 @@ func (s *Server) updateTask(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Status != nil {
 		task.Status = domain.TaskStatus(*req.Status)
+	}
+	if req.SpecMD != nil {
+		task.SpecMD = *req.SpecMD
 	}
 	if req.DueDate != nil {
 		due, err := parseDueDate(*req.DueDate)

@@ -24,7 +24,6 @@ class TaskFactory extends Factory
             'description' => fake()->paragraph(),
             'subject' => fake()->domainName(),
             'priority' => 'medium',
-            'estimated_hours' => null,
             'due_date' => null,
             'specifications' => null,
             'status' => 'pending',

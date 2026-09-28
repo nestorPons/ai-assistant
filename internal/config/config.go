@@ -47,6 +47,10 @@ type Config struct {
 	GmailPubSubSubscription string
 	GmailPollFallback       time.Duration
 
+	// Telegram.
+	TelegramBotToken    string
+	TelegramPollTimeout time.Duration
+
 	// Pre-filtro ligero.
 	MinWords int
 
@@ -89,6 +93,8 @@ func Load() (Config, error) {
 		GmailPubSubTopic:        getenv("GMAIL_PUBSUB_TOPIC", ""),
 		GmailPubSubSubscription: getenv("GMAIL_PUBSUB_SUBSCRIPTION", ""),
 		GmailPollFallback:       getenvDuration("GMAIL_POLL_FALLBACK", 5*time.Minute),
+		TelegramBotToken:        getenv("TELEGRAM_BOT_TOKEN", ""),
+		TelegramPollTimeout:     getenvDuration("TELEGRAM_POLL_TIMEOUT", 25*time.Second),
 		MinWords:                getenvInt("MIN_WORDS", 3),
 		ExtractConfidence:       getenvFloat("EXTRACT_CONFIDENCE", 0.6),
 		ReviewBelowConfidence:   getenvFloat("REVIEW_BELOW_CONFIDENCE", 0.5),

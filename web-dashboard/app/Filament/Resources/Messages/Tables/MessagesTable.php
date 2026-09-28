@@ -22,7 +22,8 @@ class MessagesTable
                 TextColumn::make('source')
                     ->label('Canal')
                     ->badge()
-                    ->sortable(),
+                    ->sortable()
+                    ->searchable(),
                 TextColumn::make('client.name')
                     ->label('Cliente')
                     ->placeholder('-')
@@ -33,8 +34,18 @@ class MessagesTable
                 TextColumn::make('content')
                     ->label('Contenido')
                     ->limit(80)
-                    ->wrap(),
+                    ->wrap()
+                    ->searchable(),
+                TextColumn::make('external_id')
+                    ->label('ID externo')
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('id')
+                    ->label('ID')
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->searchPlaceholder('Buscar en cualquier campo del mensaje…')
             ->filters([
                 SelectFilter::make('source')
                     ->label('Canal')

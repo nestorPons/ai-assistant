@@ -28,6 +28,7 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            ->globalSearch(false)
             ->brandName('K-OS')
             ->colors([
                 'primary' => Color::Emerald,

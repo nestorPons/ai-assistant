@@ -28,7 +28,7 @@ class ClientForm
                     ->dehydrated(),
                 TextInput::make('identifier')
                     ->label('Identificador')
-                    ->helperText('Email, teléfono o username del canal.')
+                    ->helperText('Gmail: email. Telegram: ID numérico de usuario. WhatsApp: teléfono.')
                     ->required()
                     ->maxLength(255)
                     ->disabledOn('edit')

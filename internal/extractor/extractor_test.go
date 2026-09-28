@@ -2,7 +2,10 @@ package extractor
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/nestorPons/ai-assistant/internal/domain"
 	"github.com/nestorPons/ai-assistant/internal/llm"
@@ -16,6 +19,34 @@ func (f fakeProvider) Complete(_ context.Context, _ llm.CompletionRequest) (llm.
 	return llm.CompletionResponse{Content: []byte(f.content)}, nil
 }
 
+type captureProvider struct {
+	req llm.CompletionRequest
+}
+
+func (c *captureProvider) Complete(_ context.Context, req llm.CompletionRequest) (llm.CompletionResponse, error) {
+	c.req = req
+	return llm.CompletionResponse{Content: []byte(`{"is_task": false, "confidence_score": 0.9}`)}, nil
+}
+
+func TestLLMExtractorSendsReferenceDate(t *testing.T) {
+	ref := time.Date(2026, 9, 28, 9, 40, 0, 0, time.UTC)
+	p := &captureProvider{}
+	ext := NewLLMExtractor(p, "gpt-4o-mini")
+
+	if _, err := ext.Extract(context.Background(), ExtractionInput{CleanPrompt: "entrega mañana", Reference: ref}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(p.req.UserPrompt, "Fecha y hora actual: 2026-09-28T09:40:00Z") {
+		t.Errorf("el prompt no incluye la fecha de referencia: %q", p.req.UserPrompt)
+	}
+	if !strings.Contains(p.req.UserPrompt, "lunes") {
+		t.Errorf("el prompt no incluye el día de la semana: %q", p.req.UserPrompt)
+	}
+	if !strings.Contains(p.req.SystemPrompt, "Fecha y hora actual") {
+		t.Errorf("el system prompt no menciona la fecha de referencia")
+	}
+}
+
 func TestLLMExtractorParsesTask(t *testing.T) {
 	content := `{
 		"is_task": true,
@@ -25,7 +56,6 @@ func TestLLMExtractorParsesTask(t *testing.T) {
 			"description": "Preparar informe trimestral",
 			"subject": "ventas Q3",
 			"priority": "high",
-			"estimated_hours": 2.5,
 			"due_date": "2026-10-01",
 			"specifications": {
 				"requirements": ["incluir datos"],
@@ -50,9 +80,6 @@ func TestLLMExtractorParsesTask(t *testing.T) {
 	if res.Priority != domain.PriorityHigh {
 		t.Errorf("prioridad = %v", res.Priority)
 	}
-	if res.EstimatedHours == nil || *res.EstimatedHours != 2.5 {
-		t.Errorf("horas = %v", res.EstimatedHours)
-	}
 	if res.DueDate == nil || res.DueDate.Format("2006-01-02") != "2026-10-01" {
 		t.Errorf("fecha límite = %v", res.DueDate)
 	}
@@ -70,7 +97,6 @@ func TestLLMExtractorTaskWithoutDateOrParams(t *testing.T) {
 			"description": "Revisar y arreglar la web",
 			"subject": "nestorpons.com",
 			"priority": "high",
-			"estimated_hours": null,
 			"due_date": null,
 			"specifications": {}
 		}
@@ -128,6 +154,43 @@ func TestLLMExtractorInvalidJSON(t *testing.T) {
 	if _, err := ext.Extract(context.Background(), ExtractionInput{CleanPrompt: "x"}); err == nil {
 		t.Fatal("esperaba error de respuesta inválida")
 	}
+}
+
+func TestExtractionJSONSchemaStrict(t *testing.T) {
+	var schema map[string]any
+	if err := json.Unmarshal([]byte(extractionJSONSchema), &schema); err != nil {
+		t.Fatalf("schema no es JSON válido: %v", err)
+	}
+
+	var walk func(path string, node map[string]any)
+	walk = func(path string, node map[string]any) {
+		props, hasProps := node["properties"].(map[string]any)
+		if hasProps {
+			ap, ok := node["additionalProperties"].(bool)
+			if !ok || ap {
+				t.Errorf("%s: additionalProperties debe ser false", path)
+			}
+			req := map[string]bool{}
+			if list, ok := node["required"].([]any); ok {
+				for _, r := range list {
+					if s, ok := r.(string); ok {
+						req[s] = true
+					}
+				}
+			}
+			for key := range props {
+				if !req[key] {
+					t.Errorf("%s: %q no está en required", path, key)
+				}
+			}
+		}
+		for key, child := range node {
+			if m, ok := child.(map[string]any); ok {
+				walk(path+"."+key, m)
+			}
+		}
+	}
+	walk("root", schema)
 }
 
 func TestMockExtractor(t *testing.T) {

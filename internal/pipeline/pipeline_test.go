@@ -5,6 +5,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -82,6 +83,9 @@ func TestPipelineCreatesTask(t *testing.T) {
 	}
 	if tasks[0].Subject == "" {
 		t.Error("la tarea debe tener un tema (subject)")
+	}
+	if !strings.Contains(tasks[0].SpecMD, "# ") {
+		t.Errorf("la tarea debe guardar el spec.md, fue %q", tasks[0].SpecMD)
 	}
 }
 

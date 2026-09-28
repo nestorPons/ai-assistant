@@ -47,7 +47,7 @@ La implementación completa del backend no se ejecutará en una sola entrega. Es
 - Definir las estructuras `IncomingMessage`, `ClassificationResult`, `ExtractionResult`, `Task` y `Client`.
 - Crear migraciones para las tablas `clients`, `raw_messages` y `tasks`.
 - Añadir a `clients` los campos `source`, `identifier`, `name`, `tracked`, `active`, `created_at` y `updated_at`; usar una restricción única sobre (`source`, `identifier`).
-- Definir en `tasks` los campos `title`, `description`, `priority`, `estimated_hours`, `specifications` (JSON), `status`, `ai_confidence`, `created_at` y `updated_at`.
+- Definir en `tasks` los campos `title`, `description`, `priority`, `specifications` (JSON), `status`, `ai_confidence`, `created_at` y `updated_at`.
 - Añadir índices y restricciones de unicidad para evitar mensajes duplicados, especialmente `raw_messages(source, external_id)`.
 - Definir un `MappingStore` para la reversión interna del anonimizador con implementaciones `MemoryMappingStore` y, en futuro, `RedisMappingStore`.
 - Implementar repositorios con consultas parametrizadas y transacciones.
@@ -161,7 +161,7 @@ type Extractor interface {
 
 - Implementar el adaptador del proveedor elegido para el extractor y enviarle únicamente los mensajes autorizados y clasificados como `extract`.
 - Validar la respuesta contra JSON Schema.
-- Extraer título, descripción, **tema** (`subject`), prioridad, horas estimadas, fecha límite (`due_date`) y las especificaciones de la tarea.
+- Extraer título, descripción, **tema** (`subject`), prioridad, fecha límite (`due_date`) y las especificaciones de la tarea.
 - Tratar `subject` como obligatorio en toda petición de trabajo, aunque falten fecha, horas u otros parámetros; no descartar ni inventar por ausencia de estos.
 - Persistir `tasks.subject` y `tasks.due_date` (NULL si no se indican).
 - Persistir `tasks.specifications` como JSON con requisitos, restricciones, entregables, criterios de aceptación, dependencias y preguntas abiertas.

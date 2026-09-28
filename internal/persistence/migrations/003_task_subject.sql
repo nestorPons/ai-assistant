@@ -4,4 +4,4 @@
 
 ALTER TABLE tasks
     ADD COLUMN IF NOT EXISTS subject  VARCHAR(255) NOT NULL DEFAULT '' AFTER description,
-    ADD COLUMN IF NOT EXISTS due_date DATE         NULL             AFTER estimated_hours;
+    ADD COLUMN IF NOT EXISTS due_date DATE         NULL;

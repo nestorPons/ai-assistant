@@ -3,9 +3,11 @@
 namespace Tests\Feature\Panel;
 
 use App\Filament\Resources\Messages\MessageResource;
+use App\Filament\Resources\Messages\Pages\ListMessages;
 use App\Models\Kos\RawMessage;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 class MessageResourceTest extends TestCase
@@ -38,5 +40,33 @@ class MessageResourceTest extends TestCase
         $this->actingAs($admin);
 
         $this->get('/admin/messages/'.$message->getKey().'/edit')->assertNotFound();
+    }
+
+    public function test_table_search_filters_by_any_message_field(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $match = RawMessage::factory()->create([
+            'content' => 'Necesito la factura del trimestre',
+            'source' => 'telegram',
+        ]);
+        $other = RawMessage::factory()->create([
+            'content' => 'Mensaje sin relación',
+            'source' => 'gmail',
+        ]);
+        $this->actingAs($admin);
+
+        Livewire::test(ListMessages::class)
+            ->searchTable('factura')
+            ->assertCanSeeTableRecords([$match])
+            ->assertCanNotSeeTableRecords([$other]);
+
+        Livewire::test(ListMessages::class)
+            ->searchTable('telegram')
+            ->assertCanSeeTableRecords([$match])
+            ->assertCanNotSeeTableRecords([$other]);
+
+        Livewire::test(ListMessages::class)
+            ->searchTable($match->getKey())
+            ->assertCanSeeTableRecords([$match]);
     }
 }

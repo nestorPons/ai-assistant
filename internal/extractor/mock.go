@@ -38,7 +38,7 @@ func (m *MockExtractor) Extract(_ context.Context, input ExtractionInput) (Extra
 		IsTask:         true,
 		Confidence:     0.92,
 		Title:          title,
-		Description:    strings.TrimSpace(input.CleanPrompt),
+		Description:    firstSentence(input.CleanPrompt),
 		Subject:        guessSubject(input.CleanPrompt, title),
 		Priority:       priority,
 		Specifications: specs,

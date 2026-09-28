@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/nestorPons/ai-assistant/internal/anonymizer"
 	"github.com/nestorPons/ai-assistant/internal/classifier"
@@ -15,6 +16,7 @@ import (
 	"github.com/nestorPons/ai-assistant/internal/extractor"
 	"github.com/nestorPons/ai-assistant/internal/normalizer"
 	"github.com/nestorPons/ai-assistant/internal/persistence"
+	"github.com/nestorPons/ai-assistant/internal/spec"
 )
 
 // Config ajusta umbrales y pre-filtro del pipeline.
@@ -154,7 +156,7 @@ func (p *Pipeline) Process(ctx context.Context, msg domain.IncomingMessage) erro
 		return p.store.MarkProcessed(ctx, raw.ID)
 
 	case classifier.DecisionExtract:
-		return p.extractAndStore(ctx, raw, msg.Source, clean.CleanPrompt)
+		return p.extractAndStore(ctx, raw, msg.Source, clean.CleanPrompt, msg.ReceivedAt)
 
 	case classifier.DecisionDBAction:
 		return p.applyDBAction(ctx, raw, clsResult)
@@ -166,8 +168,8 @@ func (p *Pipeline) Process(ctx context.Context, msg domain.IncomingMessage) erro
 }
 
 // extractAndStore ejecuta el extractor y persiste la tarea resultante.
-func (p *Pipeline) extractAndStore(ctx context.Context, raw *domain.RawMessage, source domain.Source, cleanPrompt string) error {
-	res, err := p.extractor.Extract(ctx, extractor.ExtractionInput{CleanPrompt: cleanPrompt, Source: source})
+func (p *Pipeline) extractAndStore(ctx context.Context, raw *domain.RawMessage, source domain.Source, cleanPrompt string, reference time.Time) error {
+	res, err := p.extractor.Extract(ctx, extractor.ExtractionInput{CleanPrompt: cleanPrompt, Source: source, Reference: reference})
 	if err != nil {
 		p.logger.Error("extracción fallida", "message_id", raw.ID, "error", err)
 		return err
@@ -190,12 +192,12 @@ func (p *Pipeline) extractAndStore(ctx context.Context, raw *domain.RawMessage, 
 		Description:    res.Description,
 		Subject:        res.Subject,
 		Priority:       res.Priority,
-		EstimatedHours: res.EstimatedHours,
 		DueDate:        res.DueDate,
 		Specifications: res.Specifications,
 		Status:         status,
 		AIConfidence:   res.Confidence,
 	}
+	task.SpecMD = spec.Render(task)
 
 	if err := p.store.CreateTask(ctx, task); err != nil {
 		return err

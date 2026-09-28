@@ -32,9 +32,9 @@ class Task extends Model
         'description',
         'subject',
         'priority',
-        'estimated_hours',
         'due_date',
         'specifications',
+        'spec_md',
         'status',
         'ai_confidence',
     ];
@@ -45,7 +45,6 @@ class Task extends Model
     protected function casts(): array
     {
         return [
-            'estimated_hours' => 'float',
             'due_date' => 'date',
             'specifications' => 'array',
             'ai_confidence' => 'float',

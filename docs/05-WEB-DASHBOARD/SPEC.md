@@ -55,7 +55,7 @@ Relacionado: [docs/04-DASHBOARD.md](../04-DASHBOARD.md) (TUI actual), [docs/01-I
 | Sección | TUI actual | Web (Filament) |
 |---|---|---|
 | Inicio | contadores clientes (total/autorizados), tareas por estado y prioridad, mensajes (total/sin procesar) | Widgets `StatsOverview` + gráficos |
-| Tareas | tabla, filtro por estado, editar `title`, `description`, `subject`, `priority`, `status`, `estimated_hours`, `due_date` | `TaskResource`: tabla + filtros + form + acción cambiar estado |
+| Tareas | tabla, filtro por estado, editar `title`, `description`, `subject`, `priority`, `status`, `due_date`, `spec_md` | `TaskResource`: tabla + filtros + form + acción cambiar estado |
 | Clientes | listar todos/rastreados, alta, editar nombre, alternar `tracked`/`active` | `ClientResource`: CRUD + toggles + filtro `tracked` |
 | Mensajes | listado + detalle del contenido original | `MessageResource` (solo lectura) + vista detalle. **Se muestra el contenido original** |
 | Configuración | lista de claves `.env`, editar/añadir, ocultar/mostrar secretos | **Excluido** (§9) |

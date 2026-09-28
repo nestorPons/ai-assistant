@@ -30,10 +30,6 @@ class TaskInfolist
                 TextEntry::make('status')
                     ->label('Estado')
                     ->badge(),
-                TextEntry::make('estimated_hours')
-                    ->label('Horas estimadas')
-                    ->numeric()
-                    ->placeholder('-'),
                 TextEntry::make('due_date')
                     ->label('Fecha límite')
                     ->date('Y-m-d')
@@ -48,6 +44,11 @@ class TaskInfolist
                     ->formatStateUsing(fn ($state): ?string => filled($state)
                         ? json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
                         : null),
+                TextEntry::make('spec_md')
+                    ->label('spec.md')
+                    ->placeholder('-')
+                    ->markdown()
+                    ->columnSpanFull(),
                 TextEntry::make('message_id')
                     ->label('Mensaje original')
                     ->placeholder('-')
