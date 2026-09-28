@@ -51,6 +51,10 @@ type Config struct {
 	TelegramBotToken    string
 	TelegramPollTimeout time.Duration
 
+	// WhatsApp (whatsmeow).
+	WhatsAppEnabled bool
+	WhatsAppDBPath  string
+
 	// Pre-filtro ligero.
 	MinWords int
 
@@ -95,6 +99,8 @@ func Load() (Config, error) {
 		GmailPollFallback:       getenvDuration("GMAIL_POLL_FALLBACK", 5*time.Minute),
 		TelegramBotToken:        getenv("TELEGRAM_BOT_TOKEN", ""),
 		TelegramPollTimeout:     getenvDuration("TELEGRAM_POLL_TIMEOUT", 25*time.Second),
+		WhatsAppEnabled:         getenvBool("WHATSAPP_ENABLED", false),
+		WhatsAppDBPath:          getenv("WHATSAPP_DB_PATH", "whatsapp.db"),
 		MinWords:                getenvInt("MIN_WORDS", 3),
 		ExtractConfidence:       getenvFloat("EXTRACT_CONFIDENCE", 0.6),
 		ReviewBelowConfidence:   getenvFloat("REVIEW_BELOW_CONFIDENCE", 0.5),
@@ -154,4 +160,16 @@ func getenvDuration(key string, fallback time.Duration) time.Duration {
 		return fallback
 	}
 	return d
+}
+
+func getenvBool(key string, fallback bool) bool {
+	v, ok := os.LookupEnv(key)
+	if !ok || v == "" {
+		return fallback
+	}
+	b, err := strconv.ParseBool(v)
+	if err != nil {
+		return fallback
+	}
+	return b
 }

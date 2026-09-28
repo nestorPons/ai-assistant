@@ -3,7 +3,7 @@
 namespace App\Filament\Resources\Tasks\Schemas;
 
 use App\Filament\Resources\Messages\MessageResource;
-use App\Models\Kos\Task;
+use App\Models\TskHub\Task;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Schema;
 

@@ -47,7 +47,7 @@ Relacionado: [docs/04-DASHBOARD.md](../04-DASHBOARD.md) (TUI actual), [docs/01-I
 
 ### 4.1. Acceso a datos (decisión: Opción A)
 - **Eloquent directo** sobre las tablas existentes (`clients`, `raw_messages`, `tasks`, `sync_state`).
-- Modelos en `App\Models\Kos`, sin duplicar lógica de negocio; las validaciones de escritura replican las del dominio.
+- Modelos en `App\Models\TskHub`, sin duplicar lógica de negocio; las validaciones de escritura replican las del dominio.
 - No se modifica `internal/httpapi` de `core-engine`.
 
 ## 5. Paneles (paridad con el TUI)

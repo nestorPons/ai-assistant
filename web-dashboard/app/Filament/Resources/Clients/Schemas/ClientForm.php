@@ -2,7 +2,7 @@
 
 namespace App\Filament\Resources\Clients\Schemas;
 
-use App\Models\Kos\Client;
+use App\Models\TskHub\Client;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;

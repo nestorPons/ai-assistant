@@ -2,7 +2,7 @@
 
 namespace App\Observers;
 
-use App\Models\Kos\Client;
+use App\Models\TskHub\Client;
 use App\Services\AuditLogger;
 
 class ClientObserver

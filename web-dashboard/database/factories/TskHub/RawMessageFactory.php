@@ -1,8 +1,8 @@
 <?php
 
-namespace Database\Factories\Kos;
+namespace Database\Factories\TskHub;
 
-use App\Models\Kos\RawMessage;
+use App\Models\TskHub\RawMessage;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 

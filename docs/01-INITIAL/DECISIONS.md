@@ -68,3 +68,4 @@ Las modificaciones a estos atributos deben hacerse únicamente en este documento
 - Jev deshabilitado temporalmente (429 y clasificaciones erróneas); se usa `llm` con `gpt-4o-mini`. Detalle en `../03-CLASSIFIER.md`.
 - La especificación original (`SPEC.md`) describe Jev como orquestador; el clasificador LLM conserva el mismo contrato de decisión vía `classifier.RouteDecision`.
 - Toda petición de trabajo define un `subject` (tema) obligatorio aunque el mensaje no aporte fecha ni otros parámetros; `due_date` es opcional y NULL si no se indica.
+- Canal WhatsApp incorporado con `whatsmeow` (multi-dispositivo). La sesión criptográfica se persiste en **SQLite** (archivo local/volumen); los datos de negocio (clientes, mensajes, tareas) siguen en MariaDB. El emparejado es por QR, expuesto en el panel web; los identificadores autorizables son `+<dígitos>` (1:1) y `<id>@g.us` (grupos).

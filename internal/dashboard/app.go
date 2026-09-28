@@ -137,7 +137,7 @@ func (d *Dashboard) buildLogin() {
 		AddFormItem(passField).
 		AddButton("Entrar", submit).
 		AddButton("Salir", func() { d.app.Stop() })
-	form.SetBorder(true).SetTitle(" K-OS · Acceso al panel ").SetTitleAlign(tview.AlignCenter)
+	form.SetBorder(true).SetTitle(" Tsk-Hub · Acceso al panel ").SetTitleAlign(tview.AlignCenter)
 
 	if !d.auth.Configured() {
 		status.SetText("[yellow]Sin DASHBOARD_PASSWORD_HASH configurado: acceso abierto (solo desarrollo)[-]")
@@ -224,7 +224,7 @@ func (d *Dashboard) setHeader(section string) {
 	if title == "" {
 		title = section
 	}
-	d.header.SetText(" [green::b]K-OS[-:-:-] · " + title +
+	d.header.SetText(" [green::b]Tsk-Hub[-:-:-] · " + title +
 		"   [gray]usuario:[-] " + d.user +
 		"   [gray]backend:[-] " + d.backend +
 		"   [gray]" + time.Now().Format("2006-01-02 15:04") + "[-]")

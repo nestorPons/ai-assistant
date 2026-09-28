@@ -1,5 +1,5 @@
 # ai-assistant
-K-OS personal assistant
+Tsk-Hub personal assistant
 
 Backend desacoplado en Go: recibe mensajes de Gmail/WhatsApp/Telegram, filtra usuarios autorizados, ofusca PII, clasifica (cadena con fallback) y extrae tareas con un LLM estructurado.
 
@@ -9,6 +9,11 @@ Backend desacoplado en Go: recibe mensajes de Gmail/WhatsApp/Telegram, filtra us
 - `cmd/gmail-auth` — obtiene el `refresh_token` OAuth de Gmail y lo guarda en `.env`.
 - `cmd/gmail-sync` — sincronización Gmail a demanda (dev), con pull de Pub/Sub opcional.
 - `internal/…` — dominio, persistencia, ingestion, classifier, pipeline, etc.
+
+## Canales de ingesta
+- **Gmail** — polling por query o incremental (History API + Pub/Sub).
+- **WhatsApp** — `whatsmeow` (multi-dispositivo), sesión en SQLite y QR de emparejado en el panel web. Detalle en [docs/02-CONECTIONS/WHATSAPP.md](docs/02-CONECTIONS/WHATSAPP.md).
+- Telegram — pendiente.
 
 ## Clasificación
 - `CLASSIFIER_MODE`: `chain` (Jev → LLM → reglas → revisión) | `jev` | `llm`.

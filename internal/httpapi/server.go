@@ -17,8 +17,15 @@ import (
 
 // Server es el servidor HTTP mínimo.
 type Server struct {
-	store  persistence.Store
-	logger *slog.Logger
+	store    persistence.Store
+	logger   *slog.Logger
+	whatsapp WhatsAppStatusProvider
+}
+
+// WhatsAppStatusProvider expone el estado del canal WhatsApp (opcional).
+type WhatsAppStatusProvider interface {
+	WhatsAppStatus() (connected bool, qr, errMsg string)
+	WhatsAppQRPNG() ([]byte, error)
 }
 
 // New crea el servidor.
@@ -27,6 +34,11 @@ func New(store persistence.Store, logger *slog.Logger) *Server {
 		logger = slog.Default()
 	}
 	return &Server{store: store, logger: logger}
+}
+
+// SetWhatsAppProvider adjunta el proveedor de estado de WhatsApp.
+func (s *Server) SetWhatsAppProvider(p WhatsAppStatusProvider) {
+	s.whatsapp = p
 }
 
 // Handler devuelve el router.
@@ -44,7 +56,35 @@ func (s *Server) Handler() http.Handler {
 
 	mux.HandleFunc("GET /messages", s.listMessages)
 
+	mux.HandleFunc("GET /whatsapp/status", s.whatsappStatus)
+	mux.HandleFunc("GET /whatsapp/qr.png", s.whatsappQR)
+
 	return mux
+}
+
+func (s *Server) whatsappStatus(w http.ResponseWriter, r *http.Request) {
+	if s.whatsapp == nil {
+		s.write(w, http.StatusOK, map[string]any{"connected": false, "error": "whatsapp no habilitado"})
+		return
+	}
+	connected, qr, errMsg := s.whatsapp.WhatsAppStatus()
+	s.write(w, http.StatusOK, map[string]any{"connected": connected, "qr": qr, "error": errMsg})
+}
+
+func (s *Server) whatsappQR(w http.ResponseWriter, r *http.Request) {
+	if s.whatsapp == nil {
+		http.Error(w, "whatsapp no habilitado", http.StatusNotFound)
+		return
+	}
+	png, err := s.whatsapp.WhatsAppQRPNG()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(png)
 }
 
 func (s *Server) listClients(w http.ResponseWriter, r *http.Request) {

@@ -22,8 +22,6 @@ class AdminAuditLogResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClipboardDocumentCheck;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'K-OS';
-
     protected static ?string $navigationLabel = 'Logs';
 
     protected static ?string $modelLabel = 'Registro';

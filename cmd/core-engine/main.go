@@ -26,6 +26,7 @@ import (
 	"github.com/nestorPons/ai-assistant/internal/ingestion/pubsub"
 	"github.com/nestorPons/ai-assistant/internal/ingestion/simulated"
 	"github.com/nestorPons/ai-assistant/internal/ingestion/telegram"
+	"github.com/nestorPons/ai-assistant/internal/ingestion/whatsapp"
 	"github.com/nestorPons/ai-assistant/internal/llm/openai"
 	"github.com/nestorPons/ai-assistant/internal/oauth"
 	"github.com/nestorPons/ai-assistant/internal/persistence"
@@ -84,7 +85,7 @@ func main() {
 	anon := anonymizer.NewClient(anonURL, cfg.AnonymizerToken, cfg.AnonymizerTimeout)
 
 	// Canal de entrada.
-	sources, pubsubRunner := buildSources(cfg, store)
+	sources, pubsubRunner, whatsappSrc := buildSources(cfg, store)
 
 	// En modo demo (sin canal real) se da de alta un cliente autorizado.
 	if cfg.DatabaseDSN == "" {
@@ -101,6 +102,9 @@ func main() {
 
 	// API mínima.
 	api := httpapi.New(store, logger)
+	if whatsappSrc != nil {
+		api.SetWhatsAppProvider(whatsappSrc)
+	}
 	go func() {
 		logger.Info("api escuchando", "addr", cfg.HTTPAddr)
 		if err := http.ListenAndServe(cfg.HTTPAddr, api.Handler()); err != nil {
@@ -184,9 +188,10 @@ func buildClassifier(cfg config.Config, logger *slog.Logger) classifier.Classifi
 	}
 }
 
-func buildSources(cfg config.Config, store persistence.Store) ([]ingestion.Source, func(context.Context, chan<- domain.IncomingMessage) error) {
+func buildSources(cfg config.Config, store persistence.Store) ([]ingestion.Source, func(context.Context, chan<- domain.IncomingMessage) error, *whatsapp.Source) {
 	var sources []ingestion.Source
 	var runner func(context.Context, chan<- domain.IncomingMessage) error
+	var whatsappSrc *whatsapp.Source
 
 	if cfg.TelegramBotToken != "" {
 		// Telegram es independiente de Gmail y puede convivir con él. La lista
@@ -237,11 +242,21 @@ func buildSources(cfg config.Config, store persistence.Store) ([]ingestion.Sourc
 		}
 	}
 
+	// WhatsApp: canal adicional con sesión en SQLite (independiente de las
+	// credenciales de Gmail/LLM). Expone QR de emparejado en el panel.
+	if cfg.WhatsAppEnabled {
+		whatsappSrc = whatsapp.New(whatsapp.Config{
+			DBPath: cfg.WhatsAppDBPath,
+			Logger: slog.Default(),
+		})
+		sources = append(sources, whatsappSrc)
+	}
+
 	if len(sources) == 0 {
 		// Sin canal real se usa la fuente simulada para validar el flujo.
 		sources = append(sources, simulated.NewDefault())
 	}
-	return sources, runner
+	return sources, runner, whatsappSrc
 }
 
 // seedDemoClient da de alta un cliente autorizado para la fuente simulada.

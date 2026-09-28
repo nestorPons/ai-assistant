@@ -45,9 +45,29 @@ func normalizeIdentifier(source domain.Source, id string) string {
 	switch source {
 	case domain.SourceGmail:
 		return strings.ToLower(id)
+	case domain.SourceWhatsApp:
+		return canonicalWhatsApp(id)
 	default:
 		return id
 	}
+}
+
+// canonicalWhatsApp canoniza el identificador de WhatsApp: los teléfonos se
+// reducen a "+<dígitos>"; los JID de grupo (<id>@g.us) se conservan tal cual.
+func canonicalWhatsApp(id string) string {
+	if id == "" || strings.Contains(id, "@") {
+		return id
+	}
+	var digits []rune
+	for _, r := range id {
+		if r >= '0' && r <= '9' {
+			digits = append(digits, r)
+		}
+	}
+	if len(digits) == 0 {
+		return id
+	}
+	return "+" + string(digits)
 }
 
 // WordCount cuenta las palabras de un texto (para el pre-filtro ligero).

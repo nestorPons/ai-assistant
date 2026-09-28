@@ -2,9 +2,9 @@
 
 namespace App\Filament\Widgets;
 
-use App\Models\Kos\Client;
-use App\Models\Kos\RawMessage;
-use App\Models\Kos\Task;
+use App\Models\TskHub\Client;
+use App\Models\TskHub\RawMessage;
+use App\Models\TskHub\Task;
 use Filament\Support\Icons\Heroicon;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -12,7 +12,7 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
 /**
  * Resumen de Inicio con la misma información que el dashboard TUI.
  */
-class KosStatsOverview extends StatsOverviewWidget
+class TskHubStatsOverview extends StatsOverviewWidget
 {
     protected static ?int $sort = 0;
 

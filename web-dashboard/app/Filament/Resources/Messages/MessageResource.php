@@ -6,7 +6,7 @@ use App\Filament\Resources\Messages\Pages\ListMessages;
 use App\Filament\Resources\Messages\Pages\ViewMessage;
 use App\Filament\Resources\Messages\Schemas\MessageInfolist;
 use App\Filament\Resources\Messages\Tables\MessagesTable;
-use App\Models\Kos\RawMessage;
+use App\Models\TskHub\RawMessage;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -22,8 +22,6 @@ class MessageResource extends Resource
     protected static ?string $model = RawMessage::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedEnvelope;
-
-    protected static string|\UnitEnum|null $navigationGroup = 'K-OS';
 
     protected static ?string $navigationLabel = 'Mensajes';
 

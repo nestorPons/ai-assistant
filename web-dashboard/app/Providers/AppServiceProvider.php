@@ -2,8 +2,8 @@
 
 namespace App\Providers;
 
-use App\Models\Kos\Client;
-use App\Models\Kos\Task;
+use App\Models\TskHub\Client;
+use App\Models\TskHub\Task;
 use App\Observers\ClientObserver;
 use App\Observers\TaskObserver;
 use Illuminate\Support\ServiceProvider;

@@ -8,7 +8,7 @@ Estado: MVP funcional y testeado. `SPEC.md`/`PLAN.md`/`DECISIONS.md` en `docs/01
 - **Config** (`internal/config`): variables de entorno, sin secretos en logs.
 - **Dominio** (`internal/domain`): `IncomingMessage`, `Client`, `RawMessage`, `Task` (con `subject` y `due_date`), `Specifications`.
 - **Persistencia** (`internal/persistence`): migraciones SQL (`clients`, `raw_messages`, `tasks`, `sync_state`), `MySQLStore` y `MemoryStore` (pruebas/demo). Índices de unicidad `clients(source,identifier)` y `raw_messages(source,external_id)`.
-- **Ingestión** (`internal/ingestion`): interfaz `Source`; fuentes `simulated`, `gmail` (polling API REST e incremental por History API + Pub/Sub pull) y `pubsub` (worker pull).
+- **Ingestión** (`internal/ingestion`): interfaz `Source`; fuentes `simulated`, `gmail` (polling API REST e incremental por History API + Pub/Sub pull), `pubsub` (worker pull) y `whatsapp` (whatsmeow multi-dispositivo, sesión en SQLite).
 - **Normalizador** (`internal/normalizer`): valida canal, recorta y normaliza identificador.
 - **Anonimizador cliente** (`internal/anonymizer`): `Client` HTTP hacia `llm-anonymizer`.
 - **Contexto** (`internal/context`): `Builder` genera sobre JSON con mensaje ofuscado delimitado.
@@ -35,6 +35,7 @@ Estado: MVP funcional y testeado. `SPEC.md`/`PLAN.md`/`DECISIONS.md` en `docs/01
 6. **Clasificador desacoplado**: `CLASSIFIER_MODE` = `chain` (Jev → LLM → reglas → revisión) | `jev` | `llm`. El clasificador LLM usa salida estructurada (`json_schema` estricto, temperatura 0) sobre `LLMProvider` (OpenAI-compatible).
 7. **Jev deshabilitado (temporal)**: por errores 429 (saturación) y clasificaciones erróneas en pruebas live, se usa `CLASSIFIER_MODE=llm` con `gpt-4o-mini`. El adaptador Jev queda en el código y se reactiva con `JEV_API_KEY` + modo `chain`/`jev`.
 8. **Gmail incremental**: cursor `historyId` en `sync_state`; `users.watch` + worker Pub/Sub pull + polling de respaldo (`GMAIL_POLL_FALLBACK`).
+9. **WhatsApp (whatsmeow)**: sesión en **SQLite** (no en MariaDB); emparejado por QR; los mensajes entran al mismo pipeline vía `IncomingMessage` (`source=whatsapp`). Identificadores: teléfono `+<dígitos>` (1:1) y JID `<id>@g.us` (grupos). El QR de emparejado se expone en `GET /whatsapp/status` y `GET /whatsapp/qr.png`, y el panel web lo muestra en un widget (Filament) que hace polling cada 5 s.
 
 ## Comandos
 ```bash

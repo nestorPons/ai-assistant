@@ -3,7 +3,7 @@
 namespace Tests\Feature\Panel;
 
 use App\Filament\Resources\Clients\Pages\CreateClient;
-use App\Models\Kos\Client;
+use App\Models\TskHub\Client;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;

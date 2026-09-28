@@ -39,4 +39,17 @@ return [
 
     'session_idle_timeout' => (int) env('SESSION_IDLE_TIMEOUT', 30),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Motor core-engine
+    |--------------------------------------------------------------------------
+    |
+    | URL interna del core-engine (Go) desde la que se consulta el estado de
+    | los canales, p. ej. el QR de emparejado de WhatsApp. Solo debe ser
+    | alcanzable dentro de la red de Docker, nunca expuesto al exterior.
+    |
+    */
+
+    'whatsapp_engine_url' => env('WHATSAPP_ENGINE_URL', 'http://core-engine:8081'),
+
 ];

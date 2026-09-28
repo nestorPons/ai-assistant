@@ -5,17 +5,18 @@ Estado: implementado. Spec en [SPEC.md](SPEC.md).
 ## Stack
 - Laravel 13 + Filament 4.13 (PHP 8.4 en contenedor).
 - Imagen `Dockerfile.web-dashboard`: `php:8.4-fpm-alpine` + nginx + supervisor.
-- Datos: MariaDB del servicio `db` (Eloquent directo, sin tocar `core-engine`).
+- Datos: MariaDB del servicio `db` (Eloquent directo). Solo el estado de WhatsApp se consulta por HTTP a `core-engine`.
 
 ## Componentes
-- **Modelos** (`app/Models/Kos`): `Client`, `RawMessage`, `Task` mapeados a las tablas existentes; `AdminAuditLog`.
-- **Migraciones propias**: `admin_audit_logs` e `is_admin` en `users`; las tablas K-OS se crean solo si no existen.
+- **Modelos** (`app/Models/TskHub`): `Client`, `RawMessage`, `Task` mapeados a las tablas existentes; `AdminAuditLog`.
+- **Migraciones propias**: `admin_audit_logs` e `is_admin` en `users`; las tablas Tsk-Hub se crean solo si no existen.
 - **Recursos Filament** (`app/Filament/Resources`):
   - `Clients`: CRUD, toggles `tracked`/`active`, filtros; canal/identificador inmutables en edición.
   - `Tasks`: listar/ver/editar (tema, título, descripción, prioridad, estado, horas, fecha límite); sin alta ni borrado.
   - `Messages`: solo lectura; muestra el contenido original; abre el mensaje queda auditado.
   - `AdminAuditLogs` (Logs): solo lectura.
-- **Inicio**: widget `KosStatsOverview` con los mismos contadores que el TUI.
+- **Inicio**: widget `TskHubStatsOverview` con los mismos contadores que el TUI.
+- **WhatsApp** (`App\Filament\Widgets\WhatsAppConnectionWidget` + `App\Services\WhatsAppClient`): estado del canal con polling 5 s; muestra **Conectado** o el **QR** de emparejado (proxy server-side a `GET /whatsapp/status` y `/whatsapp/qr.png` del core-engine).
 - **Auditoría** (`app/Services/AuditLogger`): observadores de `Client`/`Task` + listeners de login/logout.
 - **Seguridad**: `SecurityHeaders` (CSP, X-Frame-Options, HSTS en HTTPS), rate-limit de login (Filament), sesión cifrada, `canAccessPanel` por `is_admin`.
 - **Admin único**: `AdminUserSeeder` desde `WEB_ADMIN_*`.
@@ -41,6 +42,7 @@ docker compose -f docker-production.yml up -d --build
 - `WEB_APP_KEY`: `base64:...` de Laravel.
 - `WEB_APP_URL`: por defecto `https://tsk.nestorpons.com`.
 - `WEB_ADMIN_NAME`, `WEB_ADMIN_EMAIL`, `WEB_ADMIN_PASSWORD`.
+- `WHATSAPP_ENGINE_URL`: URL interna del core-engine (por defecto `http://core-engine:8081`).
 - En el contenedor: `SESSION_SECURE_COOKIE`, `SESSION_ENCRYPT`, `TRUSTED_PROXIES`, `DB_*`.
 
 ## Tests
@@ -48,7 +50,7 @@ docker compose -f docker-production.yml up -d --build
 cd web-dashboard
 php artisan test --compact tests/Feature/Panel
 ```
-Cubre acceso (login/roles), creación de cliente, edición de tarea, vista de mensaje con auditoría, ausencia de alta/edición de mensajes, y cabeceras de seguridad.
+Cubre acceso (login/roles), creación de cliente, edición de tarea, vista de mensaje con auditoría, ausencia de alta/edición de mensajes, cabeceras de seguridad y el cliente de estado de WhatsApp (`tests/Unit/WhatsAppClientTest`).
 
 ## Comandos útiles
 ```bash

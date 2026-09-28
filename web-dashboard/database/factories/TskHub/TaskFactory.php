@@ -1,8 +1,8 @@
 <?php
 
-namespace Database\Factories\Kos;
+namespace Database\Factories\TskHub;
 
-use App\Models\Kos\Task;
+use App\Models\TskHub\Task;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**

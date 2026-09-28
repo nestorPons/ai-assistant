@@ -49,3 +49,26 @@ func TestWordCount(t *testing.T) {
 		t.Error("word count incorrecto")
 	}
 }
+
+func TestNormalizeWhatsAppCanonical(t *testing.T) {
+	n := New()
+	cases := map[string]string{
+		" +34 612 345 678 ":  "+34612345678",
+		"612345678":          "+612345678",
+		"123456789-123@g.us": "123456789-123@g.us",
+	}
+	for in, want := range cases {
+		msg := &domain.IncomingMessage{
+			ID:               "id",
+			Source:           domain.SourceWhatsApp,
+			ClientIdentifier: in,
+			RawContent:       "hola",
+		}
+		if err := n.Normalize(context.Background(), msg); err != nil {
+			t.Fatalf("normalize(%q): %v", in, err)
+		}
+		if msg.ClientIdentifier != want {
+			t.Errorf("identificador %q = %q, want %q", in, msg.ClientIdentifier, want)
+		}
+	}
+}

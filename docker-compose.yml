@@ -62,9 +62,13 @@ services:
       GMAIL_POLL_FALLBACK: ${GMAIL_POLL_FALLBACK:-5m}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_POLL_TIMEOUT: ${TELEGRAM_POLL_TIMEOUT:-25s}
+      WHATSAPP_ENABLED: ${WHATSAPP_ENABLED:-false}
+      WHATSAPP_DB_PATH: ${WHATSAPP_DB_PATH:-/data/whatsapp.db}
       MIN_WORDS: ${MIN_WORDS:-3}
       WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-4}
       MAX_RETRIES: ${MAX_RETRIES:-2}
+    volumes:
+      - whatsapp-data:/data
     ports:
       - "8081:8081"
     networks:
@@ -99,6 +103,7 @@ services:
       WEB_ADMIN_NAME: ${WEB_ADMIN_NAME:-admin}
       WEB_ADMIN_EMAIL: ${WEB_ADMIN_EMAIL:-admin@example.com}
       WEB_ADMIN_PASSWORD: ${WEB_ADMIN_PASSWORD:-}
+      WHATSAPP_ENGINE_URL: ${WHATSAPP_ENGINE_URL:-http://core-engine:8081}
     ports:
       - "8082:80"
     networks:
@@ -107,6 +112,7 @@ services:
 
 volumes:
   db-data:
+  whatsapp-data:
 
 networks:
   internal:

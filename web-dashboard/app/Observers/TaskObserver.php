@@ -2,7 +2,7 @@
 
 namespace App\Observers;
 
-use App\Models\Kos\Task;
+use App\Models\TskHub\Task;
 use App\Services\AuditLogger;
 
 class TaskObserver

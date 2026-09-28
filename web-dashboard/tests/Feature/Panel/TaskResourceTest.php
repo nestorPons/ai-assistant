@@ -3,7 +3,7 @@
 namespace Tests\Feature\Panel;
 
 use App\Filament\Resources\Tasks\Pages\EditTask;
-use App\Models\Kos\Task;
+use App\Models\TskHub\Task;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;

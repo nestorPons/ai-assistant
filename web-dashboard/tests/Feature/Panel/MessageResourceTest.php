@@ -4,7 +4,7 @@ namespace Tests\Feature\Panel;
 
 use App\Filament\Resources\Messages\MessageResource;
 use App\Filament\Resources\Messages\Pages\ListMessages;
-use App\Models\Kos\RawMessage;
+use App\Models\TskHub\RawMessage;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;

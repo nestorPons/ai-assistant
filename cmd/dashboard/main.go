@@ -1,5 +1,5 @@
 // Command dashboard es un panel de administración TUI (estilo Filament) para
-// K-OS. Está pensado para ejecutarse dentro de una sesión SSH ya autenticada:
+// Tsk-Hub. Está pensado para ejecutarse dentro de una sesión SSH ya autenticada:
 // no abre puertos ni expone servicios. Permite gestionar clientes, tareas,
 // mensajes, editar el .env y ver la actividad del panel.
 //
