@@ -29,6 +29,7 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            ->spa()
             ->globalSearch(false)
             ->brandName('Tsk-Hub')
             ->colors([

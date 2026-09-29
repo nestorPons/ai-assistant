@@ -3,7 +3,7 @@
 namespace App\Filament\Resources\Tasks\Tables;
 
 use App\Filament\Resources\Tasks\Pages\EditTask;
-use App\Models\Kos\Task;
+use App\Models\TskHub\Task;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
