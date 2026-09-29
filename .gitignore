@@ -35,4 +35,4 @@ docker-production.yml
 
 # Editor/IDE
 # .idea/
-# .vscode/
+.vscode/
