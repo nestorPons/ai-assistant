@@ -36,7 +36,7 @@ class WhatsAppConnectionWidget extends Widget
         $status = $client->status();
 
         $qrDataUri = null;
-        if (! $status['connected'] && $status['qr'] !== '') {
+        if (! ($status['connected'] ?? false) && ($status['qr'] ?? '') !== '') {
             $qrDataUri = $client->qrDataUri();
         }
 

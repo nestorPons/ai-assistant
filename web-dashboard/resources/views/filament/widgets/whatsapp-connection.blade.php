@@ -39,6 +39,10 @@
                     <x-filament::badge color="danger">Desconectado</x-filament::badge>
                     @if ($error)
                         <p class="text-center text-sm text-gray-500 dark:text-gray-400">{{ $error }}</p>
+                    @else
+                        <p class="text-center text-sm text-gray-500 dark:text-gray-400">
+                            Esperando el código QR del motor, reintentando…
+                        </p>
                     @endif
                 @endif
             </div>

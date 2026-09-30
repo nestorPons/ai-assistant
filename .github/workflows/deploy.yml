@@ -1,0 +1,58 @@
+name: Deploy a producción
+
+# Push a main → rsync al servidor → build + up con docker-production.yml.
+#
+# Secrets requeridos en GitHub (repo → Settings → Secrets → Actions):
+#   SSH_HOST  host del servidor (p. ej. 93.127.203.142)
+#   SSH_USER  usuario SSH (p. ej. root)
+#   SSH_KEY   clave privada con acceso al servidor
+#   SSH_PORT  puerto SSH (p. ej. 22)
+#
+# Requisitos en el servidor:
+#   - Proyecto en /root/projects/tskhub (o ajusta PROJECT_PATH).
+#   - docker-production.yml y .env ya presentes (gitignored, no se suben).
+#   - Docker + compose plugin instalados.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-produccion
+  cancel-in-progress: false
+
+env:
+  PROJECT_PATH: /root/projects/tskhub
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Preparar clave SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Subir cambios por rsync
+        run: |
+          rsync -avz --delete \
+            -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=yes" \
+            --exclude='.git/' \
+            --exclude='.env' \
+            --exclude='docker-production.yml' \
+            --exclude='.gmail_cursor.json' \
+            --exclude='node_modules/' \
+            --exclude='web-dashboard/vendor/' \
+            --exclude='web-dashboard/node_modules/' \
+            --exclude='web-dashboard/storage/logs/' \
+            ./ "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.PROJECT_PATH }}/"
+
+      - name: Build + up en el servidor
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
+            "cd '${{ env.PROJECT_PATH }}' && docker compose -f docker-production.yml up -d --build && docker image prune -f"

@@ -52,6 +52,55 @@ class AdminPanelProvider extends PanelProvider
                 PanelsRenderHook::SIDEBAR_FOOTER,
                 fn (): View => view('filament.sidebar-version'),
             )
+            ->renderHook(
+                PanelsRenderHook::TOPBAR_END,
+                fn (): View => view('filament.topbar-version'),
+            )
+            ->renderHook(
+                // Compacta filtros sobre el contenido y el buscador de las tablas.
+                PanelsRenderHook::HEAD_END,
+                fn (): string => <<<'HTML'
+                    <style>
+                        .fi-ta-filters-above-content-ctn { padding-block: 0.5rem; }
+                        .fi-ta-filters-above-content-ctn .fi-ta-filters-header { display: none; }
+                        .fi-ta-search-field { max-width: 12rem; }
+                        /* Filtros + buscador de Tareas en una sola fila. */
+                        .fi-ta-header-ctn:has(.fi-ta-filters-above-content-ctn) {
+                            display: flex;
+                            flex-wrap: wrap;
+                            align-items: end;
+                            column-gap: 1rem;
+                            border-bottom: 1px solid #e5e7eb;
+                        }
+                        .dark .fi-ta-header-ctn:has(.fi-ta-filters-above-content-ctn) {
+                            border-bottom-color: rgb(255 255 255 / 0.1);
+                        }
+                        .fi-ta-header-ctn:has(.fi-ta-filters-above-content-ctn) .fi-ta-filters-above-content-ctn {
+                            border-bottom: 0;
+                        }
+                        .fi-ta-header-ctn:has(.fi-ta-filters-above-content-ctn) .fi-ta-header-toolbar {
+                            
+                            border-bottom: 0;
+                        }
+                        .task-status-filter input:not(:checked) + label.fi-btn.fi-color {
+                            background-color: var(--bg);
+                            color: var(--text);
+                        }
+                        .task-status-filter input:not(:checked)[value="needs_review"] + label {
+                            background-color: var(--gray-100);
+                            color: var(--gray-700);
+                        }
+                        .dark .task-status-filter input:not(:checked) + label.fi-btn.fi-color {
+                            background-color: var(--dark-bg);
+                            color: var(--dark-text);
+                        }
+                        .dark .task-status-filter input:not(:checked)[value="needs_review"] + label {
+                            background-color: var(--gray-800);
+                            color: var(--gray-200);
+                        }
+                    </style>
+                    HTML,
+            )
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,

@@ -16,7 +16,7 @@ class WhatsAppClient
         $body = $this->get('/whatsapp/status');
 
         if ($body === null) {
-            return ['connected' => false, 'error' => 'No se puede contactar con el motor'];
+            return ['connected' => false, 'qr' => '', 'error' => 'No se puede contactar con el motor'];
         }
 
         return [

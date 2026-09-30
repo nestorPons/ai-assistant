@@ -3,6 +3,8 @@
 namespace Tests\Feature\Panel;
 
 use App\Filament\Resources\Tasks\Pages\EditTask;
+use App\Filament\Resources\Tasks\Pages\ListTasks;
+use App\Models\TskHub\Client;
 use App\Models\TskHub\Task;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -52,5 +54,45 @@ class TaskResourceTest extends TestCase
         $this->actingAs($admin)
             ->get('/admin/tasks/create')
             ->assertNotFound();
+    }
+
+    public function test_tasks_table_shows_status_filter_above_content(): void
+    {
+        $admin = User::factory()->admin()->create();
+
+        $this->actingAs($admin)
+            ->get(ListTasks::getUrl())
+            ->assertSuccessful()
+            ->assertSee('fi-ta-filters-above-content-ctn', false);
+    }
+
+    public function test_tasks_can_be_filtered_by_status(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $pending = Task::factory()->create(['status' => 'pending']);
+        $done = Task::factory()->create(['status' => 'completed']);
+        $this->actingAs($admin);
+
+        Livewire::test(ListTasks::class)
+            ->filterTable('status', ['value' => 'pending'])
+            ->assertCanSeeTableRecords([$pending])
+            ->assertCanNotSeeTableRecords([$done]);
+    }
+
+    public function test_tasks_search_finds_records_by_client_name(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $this->actingAs($admin);
+
+        $wanted = Task::factory()->for(
+            Client::factory()->state(['name' => 'Acme Buscador Unico']),
+            'client'
+        )->create(['title' => 'Titulo sin coincidencias', 'subject' => 'tema-sin-coincidencias']);
+        $other = Task::factory()->create(['title' => 'Otro titulo', 'subject' => 'otro-tema']);
+
+        Livewire::test(ListTasks::class)
+            ->searchTable('Acme Buscador Unico')
+            ->assertCanSeeTableRecords([$wanted])
+            ->assertCanNotSeeTableRecords([$other]);
     }
 }

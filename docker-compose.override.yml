@@ -1,0 +1,16 @@
+# Override de desarrollo: se carga solo junto a docker-compose.yml
+# (producción usa -f docker-production.yml y no lo ve).
+# Monta el código del panel en caliente: cambios en PHP/Blade visibles
+# al recargar, sin rebuild. Tras levantar, ejecutar una vez:
+#   docker compose exec web-dashboard php artisan optimize:clear
+# Rebuild solo si cambian dependencias composer o el Dockerfile.
+
+services:
+  web-dashboard:
+    volumes:
+      - ./web-dashboard/app:/var/www/html/app
+      - ./web-dashboard/config:/var/www/html/config
+      - ./web-dashboard/resources:/var/www/html/resources
+      - ./web-dashboard/routes:/var/www/html/routes
+      - ./web-dashboard/public:/var/www/html/public
+      - ./web-dashboard/tests:/var/www/html/tests

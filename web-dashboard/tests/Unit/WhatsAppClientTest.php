@@ -48,6 +48,7 @@ class WhatsAppClientTest extends TestCase
         $status = app(WhatsAppClient::class)->status();
 
         $this->assertFalse($status['connected']);
+        $this->assertSame('', $status['qr']);
         $this->assertNotEmpty($status['error']);
     }
 

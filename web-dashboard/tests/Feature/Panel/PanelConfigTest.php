@@ -27,4 +27,25 @@ class PanelConfigTest extends TestCase
             ->assertSuccessful()
             ->assertSee('v'.config('app.version'));
     }
+
+    public function test_topbar_shows_the_app_version(): void
+    {
+        $admin = User::factory()->admin()->create();
+
+        $this->actingAs($admin)
+            ->get('/admin')
+            ->assertSuccessful()
+            ->assertSee('fi-topbar-version', false)
+            ->assertSee('v'.config('app.version'));
+    }
+
+    public function test_admin_user_has_an_avatar_url(): void
+    {
+        $admin = User::factory()->admin()->create(['name' => 'Ada Admin']);
+
+        $url = $admin->getFilamentAvatarUrl();
+
+        $this->assertNotEmpty($url);
+        $this->assertStringEndsWith('images/avatar.svg', (string) $url);
+    }
 }

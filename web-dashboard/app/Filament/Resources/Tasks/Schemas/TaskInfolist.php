@@ -26,10 +26,36 @@ class TaskInfolist
                     ->columnSpanFull(),
                 TextEntry::make('priority')
                     ->label('Prioridad')
-                    ->badge(),
+                    ->badge()
+                    ->colors([
+                        'gray' => 'low',
+                        'warning' => 'medium',
+                        'danger' => 'high',
+                    ])
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'low' => 'Baja',
+                        'medium' => 'Media',
+                        'high' => 'Alta',
+                        default => $state,
+                    }),
                 TextEntry::make('status')
                     ->label('Estado')
-                    ->badge(),
+                    ->badge()
+                    ->colors([
+                        'warning' => 'pending',
+                        'info' => 'in_progress',
+                        'gray' => 'needs_review',
+                        'success' => 'completed',
+                        'danger' => 'discarded',
+                    ])
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'pending' => 'Pendiente',
+                        'in_progress' => 'En progreso',
+                        'needs_review' => 'Revisión',
+                        'completed' => 'Completada',
+                        'discarded' => 'Descartada',
+                        default => $state,
+                    }),
                 TextEntry::make('due_date')
                     ->label('Fecha límite')
                     ->date('Y-m-d')
