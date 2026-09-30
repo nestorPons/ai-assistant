@@ -24,6 +24,7 @@ concurrency:
 
 env:
   PROJECT_PATH: /root/projects/tskhub
+  SSH_PORT: ${{ secrets.SSH_PORT }}
 
 jobs:
   deploy:
@@ -36,12 +37,12 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+          ssh-keyscan -p "${SSH_PORT:-22}" "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
 
       - name: Subir cambios por rsync
         run: |
           rsync -avz --delete \
-            -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=yes" \
+            -e "ssh -i ~/.ssh/deploy_key -p ${SSH_PORT:-22} -o StrictHostKeyChecking=yes" \
             --exclude='.git/' \
             --exclude='.env' \
             --exclude='docker-production.yml' \
@@ -54,5 +55,5 @@ jobs:
 
       - name: Build + up en el servidor
         run: |
-          ssh -i ~/.ssh/deploy_key -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
+          ssh -i ~/.ssh/deploy_key -p "${SSH_PORT:-22}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
             "cd '${{ env.PROJECT_PATH }}' && docker compose -f docker-production.yml up -d --build && docker image prune -f"
