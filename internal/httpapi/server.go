@@ -20,6 +20,7 @@ type Server struct {
 	store    persistence.Store
 	logger   *slog.Logger
 	whatsapp WhatsAppStatusProvider
+	channels ChannelsConfig
 }
 
 // WhatsAppStatusProvider expone el estado del canal WhatsApp (opcional).
@@ -58,6 +59,8 @@ func (s *Server) Handler() http.Handler {
 
 	mux.HandleFunc("GET /whatsapp/status", s.whatsappStatus)
 	mux.HandleFunc("GET /whatsapp/qr.png", s.whatsappQR)
+
+	mux.HandleFunc("GET /channels/status", s.channelsStatus)
 
 	return mux
 }

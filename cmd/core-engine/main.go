@@ -105,6 +105,15 @@ func main() {
 	if whatsappSrc != nil {
 		api.SetWhatsAppProvider(whatsappSrc)
 	}
+	api.SetChannelsConfig(httpapi.ChannelsConfig{
+		TelegramToken:     cfg.TelegramBotToken,
+		GmailAccessToken:  cfg.GmailAccessToken,
+		GmailClientID:     cfg.GmailClientID,
+		GmailClientSecret: cfg.GmailClientSecret,
+		GmailRefreshToken: cfg.GmailRefreshToken,
+		GmailPushMode:     cfg.GmailPushMode,
+		WhatsAppEnabled:   cfg.WhatsAppEnabled,
+	})
 	go func() {
 		logger.Info("api escuchando", "addr", cfg.HTTPAddr)
 		if err := http.ListenAndServe(cfg.HTTPAddr, api.Handler()); err != nil {

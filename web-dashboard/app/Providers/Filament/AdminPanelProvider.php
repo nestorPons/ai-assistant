@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Widgets\ChannelsStatusWidget;
 use App\Filament\Widgets\TskHubStatsOverview;
 use App\Filament\Widgets\WhatsAppConnectionWidget;
 use Filament\Http\Middleware\Authenticate;
@@ -44,6 +45,7 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([
+                ChannelsStatusWidget::class,
                 WhatsAppConnectionWidget::class,
                 TskHubStatsOverview::class,
                 AccountWidget::class,
