@@ -79,9 +79,16 @@ jobs:
         run: |
           set -euo pipefail
           PORT="${SSH_PORT:-22}"
-          command -v rsync >/dev/null || { echo "Instalando rsync…"; sudo apt-get update && sudo apt-get install -y rsync; }
+          SSH_OPTS="-i ~/.ssh/deploy_key -p $PORT -o StrictHostKeyChecking=yes"
+          command -v rsync >/dev/null || { echo "Instalando rsync en runner…"; sudo apt-get update && sudo apt-get install -y rsync; }
+          echo "Comprobando rsync en servidor…"
+          # shellcheck disable=SC2086
+          ssh $SSH_OPTS "${SSH_USER}@${SSH_HOST}" "command -v rsync >/dev/null || (command -v pacman >/dev/null && sudo pacman -Sy --noconfirm rsync || sudo apt-get update && sudo apt-get install -y rsync)" || {
+            echo "::error::rsync no está instalado en el servidor y no se pudo instalar (instálalo a mano: Arch 'pacman -Sy --noconfirm rsync', Debian/Ubuntu 'apt-get install -y rsync')"
+            exit 1
+          }
           rsync -avz --delete \
-            -e "ssh -i ~/.ssh/deploy_key -p $PORT -o StrictHostKeyChecking=yes" \
+            -e "ssh $SSH_OPTS" \
             --exclude='.git/' \
             --exclude='.env' \
             --exclude='docker-production.yml' \
