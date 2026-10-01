@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  PROJECT_PATH: ${PROJECT_PATH:-}
+  SSH_PORT_DEFAULT: "22"
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -20,14 +20,21 @@ jobs:
 
       - name: Validar secrets
         run: |
-          set -u
-          missing=0
-          [ -n "${PROJECT_PATH:-}" ] || { echo "::error::Falta el secret PROJECT_PATH"; missing=1; }
-          [ -n "${SSH_HOST:-}" ] || { echo "::error::Falta el secret SSH_HOST"; missing=1; }
-          [ -n "${SSH_USER:-}" ] || { echo "::error::Falta el secret SSH_USER"; missing=1; }
-          [ -n "${SSH_KEY:-}" ] || { echo "::error::Falta el secret SSH_KEY"; missing=1; }
-          [ "$missing" -eq 0 ] || { echo "::error::Define los secrets en Settings → Secrets → Actions"; exit 1; }
-          echo "SSH_PORT efectiva: ${SSH_PORT:-22 (defecto)}"
+          set -euo pipefail
+          # Sanea CR/LF y espacios: un secret con solo "\n" pasaba el -n y rompía rsync
+          # en destino multilínea ("bash: line 2: /: Is a directory", exit 126).
+          clean() { printf '%s' "$1" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'; }
+          PROJECT_CLEAN="$(clean "${PROJECT_PATH:-}")"
+          USER_CLEAN="$(clean "${SSH_USER:-}")"
+          HOST_CLEAN="$(clean "${SSH_HOST:-}")"
+          PORT_CLEAN="$(clean "${SSH_PORT:-22}")"
+          [ -n "$PROJECT_CLEAN" ] || { echo "::error::Falta el secret PROJECT_PATH (vacío tras sanear)"; exit 1; }
+          [ -n "$USER_CLEAN" ] || { echo "::error::Falta el secret SSH_USER"; exit 1; }
+          [ -n "$HOST_CLEAN" ] || { echo "::error::Falta el secret SSH_HOST"; exit 1; }
+          [ -n "$PORT_CLEAN" ] || PORT_CLEAN=22
+          # Seguridad: --delete contra "/" borraría el servidor. Bloquea raíz.
+          [ "$PROJECT_CLEAN" != "/" ] || { echo "::error::PROJECT_PATH no puede ser / (riesgo --delete)"; exit 1; }
+          echo "Destino saneado: ${USER_CLEAN}@${HOST_CLEAN}:${PROJECT_CLEAN}/ (puerto ${PORT_CLEAN})"
         env:
           PROJECT_PATH: ${{ secrets.PROJECT_PATH }}
           SSH_HOST: ${{ secrets.SSH_HOST }}
@@ -38,25 +45,28 @@ jobs:
       - name: Preparar clave SSH
         run: |
           set -euo pipefail
-          PORT="${SSH_PORT:-22}"
-          [ -n "${SSH_HOST:?SSH_HOST vacío}" ]
+          PORT="$(printf '%s' "${SSH_PORT:-22}" | tr -d '\r\n' | xargs)"
+          [ -n "$PORT" ] || PORT=22
+          SSH_HOST_C="$(printf '%s' "$SSH_HOST" | tr -d '\r\n' | xargs)"
+          [ -n "${SSH_HOST_C:?SSH_HOST vacío tras sanear}" ]
+          KEY="$HOME/.ssh/deploy_key"
           umask 077
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          printf '%s\n' "${SSH_KEY}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+          printf '%s\n' "${SSH_KEY}" > "$KEY"
+          chmod 600 "$KEY"
           # La clave debe parecer una clave privada, si no el secret está mal pegado.
-          head -1 ~/.ssh/deploy_key | grep -qE 'BEGIN .*PRIVATE KEY' || {
+          head -1 "$KEY" | grep -qE 'BEGIN .*PRIVATE KEY' || {
             echo "::error::SSH_KEY no parece una clave privada (primera línea inesperada)"
             exit 1
           }
-          rm -f ~/.ssh/known_hosts
-          ssh-keyscan -p "$PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts || {
-            echo "::error::ssh-keyscan falló para $SSH_HOST:$PORT (host/puerto inaccesible)"
+          rm -f "$HOME/.ssh/known_hosts"
+          ssh-keyscan -p "$PORT" -H "$SSH_HOST_C" >> "$HOME/.ssh/known_hosts" || {
+            echo "::error::ssh-keyscan falló para $SSH_HOST_C:$PORT (host/puerto inaccesible)"
             exit 1
           }
           echo "known_hosts:"
-          cat ~/.ssh/known_hosts
+          cat "$HOME/.ssh/known_hosts"
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_KEY: ${{ secrets.SSH_KEY }}
@@ -66,17 +76,30 @@ jobs:
       - name: Subir cambios por rsync
         run: |
           set -euo pipefail
-          PORT="${SSH_PORT:-22}"
-          SSH_OPTS="-i ~/.ssh/deploy_key -p $PORT -o StrictHostKeyChecking=yes"
+          # Sanea todo: evita destino multilínea ("bash: line 2: /: Is a directory", exit 126).
+          PORT="$(printf '%s' "${SSH_PORT:-22}" | tr -d '\r\n' | xargs)"
+          [ -n "$PORT" ] || PORT=22
+          SSH_USER_C="$(printf '%s' "$SSH_USER" | tr -d '\r\n' | xargs)"
+          SSH_HOST_C="$(printf '%s' "$SSH_HOST" | tr -d '\r\n' | xargs)"
+          DEST_C="$(printf '%s' "$PROJECT_PATH" | tr -d '\r\n' | xargs)"
+          [ -n "$SSH_USER_C" ] || { echo "::error::SSH_USER vacío tras sanear"; exit 1; }
+          [ -n "$SSH_HOST_C" ] || { echo "::error::SSH_HOST vacío tras sanear"; exit 1; }
+          [ -n "$DEST_C" ] || { echo "::error::PROJECT_PATH vacío tras sanear (revisa el secret, suele traer salto de línea)"; exit 1; }
+          [ "$DEST_C" != "/" ] || { echo "::error::PROJECT_PATH no puede ser / (riesgo --delete)"; exit 1; }
+          KEY="$HOME/.ssh/deploy_key"
+          [ -s "$KEY" ] || { echo "::error::falta $KEY (paso anterior no la creó)"; exit 1; }
+          SSH_CMD="ssh -i $KEY -p $PORT -o StrictHostKeyChecking=yes"
           command -v rsync >/dev/null || { echo "Instalando rsync en runner…"; sudo apt-get update && sudo apt-get install -y rsync; }
           echo "Comprobando rsync en servidor (instalación manual, el workflow no instala nada)…"
           # shellcheck disable=SC2086
-          ssh $SSH_OPTS "${SSH_USER}@${SSH_HOST}" "rsync --version >/dev/null 2>&1" || {
+          ssh $SSH_CMD "${SSH_USER_C}@${SSH_HOST_C}" "rsync --version >/dev/null 2>&1" || {
             echo "::error::rsync no está disponible en el servidor (instálalo a mano: Arch 'pacman -Sy --noconfirm rsync', Debian/Ubuntu 'apt-get install -y rsync')"
             exit 1
           }
-          rsync -avz --delete \
-            -e "ssh $SSH_OPTS" \
+          echo "Destino: ${SSH_USER_C}@${SSH_HOST_C}:${DEST_C}/"
+          # -s/--protect-args: el path remoto con espacios llega intacto al servidor.
+          rsync -avz --delete -s \
+            -e "$SSH_CMD" \
             --exclude='.git/' \
             --exclude='.env' \
             --exclude='docker-compose.yml' \
@@ -86,7 +109,7 @@ jobs:
             --exclude='web-dashboard/vendor/' \
             --exclude='web-dashboard/node_modules/' \
             --exclude='web-dashboard/storage/logs/' \
-            ./ "${SSH_USER}@${SSH_HOST}:${PROJECT_PATH}/"
+            ./ "${SSH_USER_C}@${SSH_HOST_C}:${DEST_C}/"
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
@@ -96,9 +119,16 @@ jobs:
       - name: Build + up en el servidor
         run: |
           set -euo pipefail
-          PORT="${SSH_PORT:-22}"
-          ssh -i ~/.ssh/deploy_key -p "$PORT" -o StrictHostKeyChecking=yes "${SSH_USER}@${SSH_HOST}" \
-            "cd '${{ secrets.PROJECT_PATH }}' && docker compose up -d --build && docker image prune -f"
+          PORT="$(printf '%s' "${SSH_PORT:-22}" | tr -d '\r\n' | xargs)"
+          [ -n "$PORT" ] || PORT=22
+          SSH_USER_C="$(printf '%s' "$SSH_USER" | tr -d '\r\n' | xargs)"
+          SSH_HOST_C="$(printf '%s' "$SSH_HOST" | tr -d '\r\n' | xargs)"
+          DEST_C="$(printf '%s' "$PROJECT_PATH" | tr -d '\r\n' | xargs)"
+          [ -n "$DEST_C" ] && [ "$DEST_C" != "/" ] || { echo "::error::PROJECT_PATH inválido tras sanear"; exit 1; }
+          # Escapa comillas simples para el cd remoto (no interpolar el secret en bruto).
+          DEST_ESCAPED="$(printf '%s' "$DEST_C" | sed "s/'/'\\\\''/g")"
+          ssh -i "$HOME/.ssh/deploy_key" -p "$PORT" -o StrictHostKeyChecking=yes "${SSH_USER_C}@${SSH_HOST_C}" \
+            "cd '${DEST_ESCAPED}' && docker compose up -d --build && docker image prune -f"
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
