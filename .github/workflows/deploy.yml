@@ -69,10 +69,10 @@ jobs:
           PORT="${SSH_PORT:-22}"
           SSH_OPTS="-i ~/.ssh/deploy_key -p $PORT -o StrictHostKeyChecking=yes"
           command -v rsync >/dev/null || { echo "Instalando rsync en runner…"; sudo apt-get update && sudo apt-get install -y rsync; }
-          echo "Comprobando rsync en servidor…"
+          echo "Comprobando rsync en servidor (instalación manual, el workflow no instala nada)…"
           # shellcheck disable=SC2086
-          ssh $SSH_OPTS "${SSH_USER}@${SSH_HOST}" "rsync --version >/dev/null 2>&1 || (command -v pacman >/dev/null && sudo pacman -Sy --noconfirm acl rsync || sudo apt-get update && sudo apt-get install -y rsync); rsync --version >/dev/null 2>&1" || {
-            echo "::error::rsync no está instalado en el servidor y no se pudo instalar (instálalo a mano: Arch 'pacman -Sy --noconfirm rsync', Debian/Ubuntu 'apt-get install -y rsync')"
+          ssh $SSH_OPTS "${SSH_USER}@${SSH_HOST}" "rsync --version >/dev/null 2>&1" || {
+            echo "::error::rsync no está disponible en el servidor (instálalo a mano: Arch 'pacman -Sy --noconfirm rsync', Debian/Ubuntu 'apt-get install -y rsync')"
             exit 1
           }
           rsync -avz --delete \
