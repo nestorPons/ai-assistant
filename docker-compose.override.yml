@@ -3,7 +3,8 @@
 # Monta el código del panel en caliente: cambios en PHP/Blade visibles
 # al recargar, sin rebuild. Tras levantar, ejecutar una vez:
 #   docker compose exec web-dashboard php artisan optimize:clear
-# Rebuild solo si cambian dependencias composer o el Dockerfile.
+# Rebuild si cambian dependencias composer, el Dockerfile o se añaden clases PHP
+# nuevas (el autoload es classmap-authoritative y no ve ficheros nuevos sin rebuild).
 
 services:
   web-dashboard:

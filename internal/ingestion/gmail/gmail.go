@@ -193,6 +193,12 @@ func (s *Source) emit(ctx context.Context, out chan<- domain.IncomingMessage, id
 	for _, id := range ids {
 		msg, err := s.getMessage(ctx, id)
 		if err != nil {
+			if isGmailNotFound(err) {
+				// El mensaje desapareció entre list y get (borrador,
+				// eliminado). Se omite sin abortar el resto del lote.
+				s.logger.Warn("gmail mensaje no disponible, omitido", "id", id)
+				continue
+			}
 			return err
 		}
 		select {
@@ -350,6 +356,11 @@ func decodeBody(data string) string {
 }
 
 var emailRe = regexp.MustCompile(`<([^>]+)>`)
+
+// isGmailNotFound detecta el 404 de messages.get: el ID listado ya no existe.
+func isGmailNotFound(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "gmail get status 404")
+}
 
 func extractEmail(from string) string {
 	if m := emailRe.FindStringSubmatch(from); len(m) == 2 {

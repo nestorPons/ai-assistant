@@ -262,6 +262,34 @@ func TestLiveGmailLastMessage(t *testing.T) {
 		msg.ID, msg.ClientIdentifier, msg.ClientName, msg.RawContent)
 }
 
+func TestEmitSkipsNotFound(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/messages"):
+			fmt.Fprint(w, `{"messages":[{"id":"gone"},{"id":"ok"}]}`)
+		case strings.HasSuffix(r.URL.Path, "/messages/gone"):
+			w.WriteHeader(http.StatusNotFound)
+		case strings.HasSuffix(r.URL.Path, "/messages/ok"):
+			fmt.Fprint(w, `{"id":"ok","snippet":"hola","payload":{"headers":[{"name":"From","value":"ana@acme.com"}]}}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	s := newTestSource(t, srv.URL, nil)
+	out := make(chan domain.IncomingMessage, 10)
+	if err := s.pollOnce(context.Background(), out); err != nil {
+		t.Fatalf("pollOnce = %v, want nil (el 404 se omite)", err)
+	}
+	if len(out) != 1 {
+		t.Fatalf("mensajes emitidos = %d, want 1", len(out))
+	}
+	if got := (<-out).ID; got != "ok" {
+		t.Errorf("id = %q, want ok", got)
+	}
+}
+
 func loadDotEnv(path string) map[string]string {
 	out := map[string]string{}
 	f, err := os.Open(path)
