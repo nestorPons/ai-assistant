@@ -3,7 +3,7 @@
 ## Estructura
 - `cmd/`, `internal/` — backend Go (core-engine, ingesta, clasificador).
 - `web-dashboard/` — panel Laravel 13 + Filament 4 (`app/Filament`, `config/`, `resources/views/filament`).
-- `docker-compose.yml` — dev; `docker-production.yml` (gitignored) — prod tras Traefik (`traefik-net`).
+- `docker-compose.yml` — dev; en prod el compose se gestiona a mano en el servidor (tras Traefik, `traefik-net`) y está excluido del deploy.
 
 ## Versionado del panel (obligatorio)
 - Fuente única: `web-dashboard/config/app.php` → clave `version` (visible en el sidebar del panel).

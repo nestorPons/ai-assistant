@@ -1,5 +1,5 @@
 # Override de desarrollo: se carga solo junto a docker-compose.yml
-# (producción usa -f docker-production.yml y no lo ve).
+# (el compose de producción se gestiona a mano en el servidor y no lo ve).
 # Monta el código del panel en caliente: cambios en PHP/Blade visibles
 # al recargar, sin rebuild. Tras levantar, ejecutar una vez:
 #   docker compose exec web-dashboard php artisan optimize:clear

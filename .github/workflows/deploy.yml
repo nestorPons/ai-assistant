@@ -1,6 +1,6 @@
 name: Deploy a producción
 
-# Push a main → rsync al servidor → build + up con docker-production.yml.
+# Push a main → rsync al servidor → build + up con docker-compose.yml.
 #
 # Secrets requeridos: environment `production`
 # (repo → Settings → Environments → production → Secrets):
@@ -11,7 +11,8 @@ name: Deploy a producción
 #
 # Requisitos en el servidor:
 #   - Proyecto en /root/projects/tskhub (o ajusta PROJECT_PATH).
-#   - docker-production.yml y .env ya presentes (gitignored, no se suben).
+#   - docker-compose.yml y .env de producción ya presentes
+#     (gestionados a mano, excluidos del rsync, no se suben).
 #   - Docker + compose plugin instalados.
 
 on:
@@ -91,7 +92,6 @@ jobs:
             -e "ssh $SSH_OPTS" \
             --exclude='.git/' \
             --exclude='.env' \
-            --exclude='docker-production.yml' \
             --exclude='docker-compose.yml' \
             --exclude='docker-compose.override.yml' \
             --exclude='.gmail_cursor.json' \
@@ -111,7 +111,7 @@ jobs:
           set -euo pipefail
           PORT="${SSH_PORT:-22}"
           ssh -i ~/.ssh/deploy_key -p "$PORT" -o StrictHostKeyChecking=yes "${SSH_USER}@${SSH_HOST}" \
-            "cd '${{ env.PROJECT_PATH }}' && docker compose -f docker-production.yml up -d --build && docker image prune -f"
+            "cd '${{ env.PROJECT_PATH }}' && docker compose up -d --build && docker image prune -f"
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
