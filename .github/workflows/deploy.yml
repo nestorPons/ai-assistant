@@ -22,12 +22,14 @@ jobs:
         run: |
           set -u
           missing=0
+          [ -n "${PROJECT_PATH:-}" ] || { echo "::error::Falta el secret PROJECT_PATH"; missing=1; }
           [ -n "${SSH_HOST:-}" ] || { echo "::error::Falta el secret SSH_HOST"; missing=1; }
           [ -n "${SSH_USER:-}" ] || { echo "::error::Falta el secret SSH_USER"; missing=1; }
           [ -n "${SSH_KEY:-}" ] || { echo "::error::Falta el secret SSH_KEY"; missing=1; }
           [ "$missing" -eq 0 ] || { echo "::error::Define los secrets en Settings → Secrets → Actions"; exit 1; }
           echo "SSH_PORT efectiva: ${SSH_PORT:-22 (defecto)}"
         env:
+          PROJECT_PATH: ${{ secrets.PROJECT_PATH }}
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
           SSH_KEY: ${{ secrets.SSH_KEY }}
@@ -59,6 +61,7 @@ jobs:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_KEY: ${{ secrets.SSH_KEY }}
           SSH_PORT: ${{ secrets.SSH_PORT }}
+          PROJECT_PATH: ${{ secrets.PROJECT_PATH }}
 
       - name: Subir cambios por rsync
         run: |
@@ -88,15 +91,16 @@ jobs:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
           SSH_PORT: ${{ secrets.SSH_PORT }}
-          PROJECT_PATH: ${{ env.PROJECT_PATH }}
+          PROJECT_PATH: ${{ secrets.PROJECT_PATH }}
 
       - name: Build + up en el servidor
         run: |
           set -euo pipefail
           PORT="${SSH_PORT:-22}"
           ssh -i ~/.ssh/deploy_key -p "$PORT" -o StrictHostKeyChecking=yes "${SSH_USER}@${SSH_HOST}" \
-            "cd '${{ env.PROJECT_PATH }}' && docker compose up -d --build && docker image prune -f"
+            "cd '${{ secrets.PROJECT_PATH }}' && docker compose up -d --build && docker image prune -f"
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
           SSH_PORT: ${{ secrets.SSH_PORT }}
+          PROJECT_PATH: ${{ secrets.PROJECT_PATH }}
