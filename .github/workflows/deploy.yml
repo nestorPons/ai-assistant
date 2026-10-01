@@ -1,20 +1,5 @@
 name: Deploy a producción
 
-# Push a main → rsync al servidor → build + up con docker-compose.yml.
-#
-# Secrets requeridos: environment `production`
-# (repo → Settings → Environments → production → Secrets):
-#   SSH_HOST  host del servidor (p. ej. 93.127.203.142)
-#   SSH_USER  usuario SSH (p. ej. root)
-#   SSH_KEY   clave privada con acceso al servidor
-#   SSH_PORT  puerto SSH (opcional, por defecto 22)
-#
-# Requisitos en el servidor:
-#   - Proyecto en /root/projects/tskhub (o ajusta PROJECT_PATH).
-#   - docker-compose.yml y .env de producción ya presentes
-#     (gestionados a mano, excluidos del rsync, no se suben).
-#   - Docker + compose plugin instalados.
-
 on:
   push:
     branches: [main]
@@ -25,8 +10,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  PROJECT_PATH: /root/projects/tskhub
-
+  PROJECT_PATH: ${PROJECT_PATH:-}
 jobs:
   deploy:
     runs-on: ubuntu-latest
