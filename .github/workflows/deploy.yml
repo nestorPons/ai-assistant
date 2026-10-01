@@ -2,11 +2,12 @@ name: Deploy a producción
 
 # Push a main → rsync al servidor → build + up con docker-production.yml.
 #
-# Secrets requeridos en GitHub (repo → Settings → Secrets → Actions):
+# Secrets requeridos: environment `production`
+# (repo → Settings → Environments → production → Secrets):
 #   SSH_HOST  host del servidor (p. ej. 93.127.203.142)
 #   SSH_USER  usuario SSH (p. ej. root)
 #   SSH_KEY   clave privada con acceso al servidor
-#   SSH_PORT  puerto SSH (p. ej. 22)
+#   SSH_PORT  puerto SSH (opcional, por defecto 22)
 #
 # Requisitos en el servidor:
 #   - Proyecto en /root/projects/tskhub (o ajusta PROJECT_PATH).
@@ -24,25 +25,63 @@ concurrency:
 
 env:
   PROJECT_PATH: /root/projects/tskhub
-  SSH_PORT: ${{ secrets.SSH_PORT }}
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: production
     steps:
       - uses: actions/checkout@v4
 
+      - name: Validar secrets
+        run: |
+          set -u
+          missing=0
+          [ -n "${SSH_HOST:-}" ] || { echo "::error::Falta el secret SSH_HOST"; missing=1; }
+          [ -n "${SSH_USER:-}" ] || { echo "::error::Falta el secret SSH_USER"; missing=1; }
+          [ -n "${SSH_KEY:-}" ] || { echo "::error::Falta el secret SSH_KEY"; missing=1; }
+          [ "$missing" -eq 0 ] || { echo "::error::Define los secrets en Settings → Secrets → Actions"; exit 1; }
+          echo "SSH_PORT efectiva: ${SSH_PORT:-22 (defecto)}"
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+
       - name: Preparar clave SSH
         run: |
+          set -euo pipefail
+          PORT="${SSH_PORT:-22}"
+          [ -n "${SSH_HOST:?SSH_HOST vacío}" ]
+          umask 077
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 700 ~/.ssh
+          printf '%s\n' "${SSH_KEY}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -p "${SSH_PORT:-22}" "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+          # La clave debe parecer una clave privada, si no el secret está mal pegado.
+          head -1 ~/.ssh/deploy_key | grep -qE 'BEGIN .*PRIVATE KEY' || {
+            echo "::error::SSH_KEY no parece una clave privada (primera línea inesperada)"
+            exit 1
+          }
+          rm -f ~/.ssh/known_hosts
+          ssh-keyscan -p "$PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts || {
+            echo "::error::ssh-keyscan falló para $SSH_HOST:$PORT (host/puerto inaccesible)"
+            exit 1
+          }
+          echo "known_hosts:"
+          cat ~/.ssh/known_hosts
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
 
       - name: Subir cambios por rsync
         run: |
+          set -euo pipefail
+          PORT="${SSH_PORT:-22}"
+          command -v rsync >/dev/null || { echo "Instalando rsync…"; sudo apt-get update && sudo apt-get install -y rsync; }
           rsync -avz --delete \
-            -e "ssh -i ~/.ssh/deploy_key -p ${SSH_PORT:-22} -o StrictHostKeyChecking=yes" \
+            -e "ssh -i ~/.ssh/deploy_key -p $PORT -o StrictHostKeyChecking=yes" \
             --exclude='.git/' \
             --exclude='.env' \
             --exclude='docker-production.yml' \
@@ -51,9 +90,20 @@ jobs:
             --exclude='web-dashboard/vendor/' \
             --exclude='web-dashboard/node_modules/' \
             --exclude='web-dashboard/storage/logs/' \
-            ./ "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.PROJECT_PATH }}/"
+            ./ "${SSH_USER}@${SSH_HOST}:${PROJECT_PATH}/"
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          PROJECT_PATH: ${{ env.PROJECT_PATH }}
 
       - name: Build + up en el servidor
         run: |
-          ssh -i ~/.ssh/deploy_key -p "${SSH_PORT:-22}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
+          set -euo pipefail
+          PORT="${SSH_PORT:-22}"
+          ssh -i ~/.ssh/deploy_key -p "$PORT" -o StrictHostKeyChecking=yes "${SSH_USER}@${SSH_HOST}" \
             "cd '${{ env.PROJECT_PATH }}' && docker compose -f docker-production.yml up -d --build && docker image prune -f"
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
