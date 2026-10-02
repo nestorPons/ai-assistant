@@ -79,3 +79,4 @@ Si no hay `DATABASE_DSN`, el DSN se construye desde `MARIADB_*` del `.env`
 - [docs/03-CLASSIFIER.md](docs/03-CLASSIFIER.md) — clasificador y cadena de fallback.
 - [docs/04-DASHBOARD.md](docs/04-DASHBOARD.md) — panel de administración TUI por SSH.
 - [docs/05-WEB-DASHBOARD](docs/05-WEB-DASHBOARD) — panel web Laravel + Filament.
+- [docs/06-DEPLOYMENT/DEPLOY.md](docs/06-DEPLOYMENT/DEPLOY.md) — despliegue automático a SFTP en cada `git push`.

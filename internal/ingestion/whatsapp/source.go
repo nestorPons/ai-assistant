@@ -96,9 +96,11 @@ func (s *Source) Start(ctx context.Context, out chan<- domain.IncomingMessage) e
 	client.AddEventHandler(func(evt any) { s.handleEvent(client, evt, out) })
 
 	if client.Store.ID != nil {
-		s.setStatus(Status{Connected: client.IsLoggedIn()})
 		if err := client.Connect(); err != nil && ctx.Err() == nil {
+			s.setStatus(Status{Error: err.Error()})
 			s.logger.Error("whatsapp: conexión fallida", "error", err)
+		} else {
+			s.setStatus(Status{Connected: client.IsLoggedIn()})
 		}
 		<-ctx.Done()
 		client.Disconnect()
@@ -106,6 +108,8 @@ func (s *Source) Start(ctx context.Context, out chan<- domain.IncomingMessage) e
 	}
 
 	// Sin sesión: bucle de emparejado por QR hasta loguear o cancelar.
+	// Entre intentos se desconecta para que GetQRChannel pueda rearmarse
+	// (si no, devuelve ErrQRAlreadyConnected y el QR deja de rotar).
 	for {
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -115,6 +119,7 @@ func (s *Source) Start(ctx context.Context, out chan<- domain.IncomingMessage) e
 			s.setStatus(Status{Connected: true})
 			break
 		}
+		client.Disconnect()
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -226,8 +231,14 @@ func (s *Source) handleMessage(evt *events.Message, out chan<- domain.IncomingMe
 	if evt.Info.IsFromMe {
 		return
 	}
-	// Solo chats 1:1 y grupos; se ignoran estados/difusiones.
-	if evt.Info.Chat.Server != types.DefaultUserServer && evt.Info.Chat.Server != types.GroupServer {
+	// Solo chats 1:1 (PN o LID) y grupos; se ignoran estados/difusiones,
+	// newsletters y resto de servidores.
+	if evt.Info.IsGroup {
+		if evt.Info.Chat.Server != types.GroupServer {
+			return
+		}
+	} else if !isDirectChatServer(evt.Info.Chat.Server) {
+		s.logger.Debug("whatsapp: chat ignorado por servidor", "chat", evt.Info.Chat.String())
 		return
 	}
 
@@ -256,16 +267,49 @@ func (s *Source) handleMessage(evt *events.Message, out chan<- domain.IncomingMe
 	}
 }
 
+// isDirectChatServer acepta los servidores de chats 1:1: número de teléfono
+// (s.whatsapp.net), LID oculto (lid, direccionamiento por defecto desde 2024)
+// y el legado (c.us).
+func isDirectChatServer(server string) bool {
+	switch server {
+	case types.DefaultUserServer, types.HiddenUserServer, types.LegacyUserServer:
+		return true
+	default:
+		return false
+	}
+}
+
+// phoneOf extrae el teléfono (+…) del remitente aunque WhatsApp direccione por
+// LID: prefiere el JID con servidor s.whatsapp.net entre Sender y SenderAlt.
+func phoneOf(info types.MessageInfo) string {
+	if info.Sender.Server == types.DefaultUserServer && info.Sender.User != "" {
+		return "+" + info.Sender.User
+	}
+	if info.SenderAlt.Server == types.DefaultUserServer && info.SenderAlt.User != "" {
+		return "+" + info.SenderAlt.User
+	}
+	return ""
+}
+
 // clientIdentifier devuelve el identificador autorizable: teléfono (+34…)
 // para chats 1:1 y el JID completo del grupo (<id>@g.us) para grupos.
+// Con direccionamiento LID el Sender suele ser <id>@lid y el teléfono viaja
+// en SenderAlt; si no hay teléfono disponible se devuelve el LID
+// (<id>@lid) para que al menos sea autorizable desde el panel.
 func clientIdentifier(info types.MessageInfo) string {
 	if info.IsGroup {
 		return info.Chat.String()
 	}
-	if info.Sender.User == "" {
-		return ""
+	if pn := phoneOf(info); pn != "" {
+		return pn
 	}
-	return "+" + info.Sender.User
+	if info.Sender.User != "" && isDirectChatServer(info.Sender.Server) {
+		return info.Sender.String()
+	}
+	if info.SenderAlt.User != "" && isDirectChatServer(info.SenderAlt.Server) {
+		return info.SenderAlt.String()
+	}
+	return ""
 }
 
 // messageText extrae el texto del mensaje: conversación, texto extendido o el

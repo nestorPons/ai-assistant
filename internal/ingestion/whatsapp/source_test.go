@@ -37,6 +37,27 @@ func TestClientIdentifier(t *testing.T) {
 			want: "123456789-123456@g.us",
 		},
 		{
+			name: "chat 1:1 por LID con telefono en SenderAlt",
+			info: types.MessageInfo{
+				MessageSource: types.MessageSource{
+					Sender:    types.JID{User: "12345678901234", Server: types.HiddenUserServer},
+					SenderAlt: types.JID{User: "34612345678", Server: types.DefaultUserServer},
+					Chat:      types.JID{User: "12345678901234", Server: types.HiddenUserServer},
+				},
+			},
+			want: "+34612345678",
+		},
+		{
+			name: "chat 1:1 solo LID sin telefono",
+			info: types.MessageInfo{
+				MessageSource: types.MessageSource{
+					Sender: types.JID{User: "12345678901234", Server: types.HiddenUserServer},
+					Chat:   types.JID{User: "12345678901234", Server: types.HiddenUserServer},
+				},
+			},
+			want: "12345678901234@lid",
+		},
+		{
 			name: "sin usuario",
 			info: types.MessageInfo{
 				MessageSource: types.MessageSource{
@@ -49,6 +70,20 @@ func TestClientIdentifier(t *testing.T) {
 	for _, c := range cases {
 		if got := clientIdentifier(c.info); got != c.want {
 			t.Errorf("%s: clientIdentifier = %q, want %q", c.name, got, c.want)
+		}
+	}
+}
+
+func TestIsDirectChatServer(t *testing.T) {
+	direct := []string{types.DefaultUserServer, types.HiddenUserServer, types.LegacyUserServer}
+	for _, srv := range direct {
+		if !isDirectChatServer(srv) {
+			t.Errorf("isDirectChatServer(%q) = false, want true", srv)
+		}
+	}
+	for _, srv := range []string{types.GroupServer, types.BroadcastServer, types.NewsletterServer, "status"} {
+		if isDirectChatServer(srv) {
+			t.Errorf("isDirectChatServer(%q) = true, want false", srv)
 		}
 	}
 }
