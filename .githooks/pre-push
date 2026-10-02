@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Se ejecuta antes de `git push`. Solo despliega si se pushea la rama main
+# (destino refs/heads/main), subiendo el estado exacto del commit pusheado.
+# Saltar con: SKIP_DEPLOY=1 git push
+set -euo pipefail
+
+[[ "${SKIP_DEPLOY:-}" == "1" ]] && exit 0
+
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+MAIN_SHA=""
+ZERO="0000000000000000000000000000000000000000"
+while IFS=' ' read -r local_ref local_sha remote_ref remote_sha; do
+  [[ -z "${local_ref:-}" ]] && continue
+  if [[ "$remote_ref" == "refs/heads/main" && "$local_sha" != "$ZERO" ]]; then
+    MAIN_SHA="$local_sha"
+  fi
+done
+
+[[ -z "$MAIN_SHA" ]] && exit 0
+
+"$REPO_ROOT/scripts/deploy.sh" "$MAIN_SHA"

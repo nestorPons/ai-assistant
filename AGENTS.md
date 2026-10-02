@@ -11,3 +11,6 @@
   - `patch` (x.y.Z): fix, estilo, config, tests.
   - `minor` (x.Y.0): feature, página/recurso/widget nuevo.
 - Incluir el bump en la lista de archivos modificados del resumen final.
+
+## Restricciones
+- No subir nunca docker-composer.yml a produccion
